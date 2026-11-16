@@ -32,6 +32,10 @@ data class HudProfiles(
     val names: List<String>
         get() = profiles.keys.toList()
 
+    /** The active layout as it leaves the launcher: under the name the player sees in the list. */
+    val exported: HudLayout
+        get() = layout.named(activeName)
+
     val hasLegacy: Boolean
         get() = LEGACY in profiles
 
@@ -52,7 +56,7 @@ data class HudProfiles(
         if (from !in profiles || wanted.isEmpty() || wanted == from) return this
         val unique = uniqueName(wanted)
         val renamed = LinkedHashMap<String, HudLayout>()
-        profiles.forEach { (name, layout) -> renamed[if (name == from) unique else name] = layout }
+        profiles.forEach { (name, layout) -> renamed[if (name == from) unique else name] = if (name == from) layout.named(unique) else layout }
         return copy(active = if (activeName == from) unique else activeName, profiles = renamed)
     }
 
@@ -138,7 +142,7 @@ data class HudProfiles(
 object HudTransfer {
     const val MAX_TEXT = 64_000
     const val MAX_CONTROLS = 64
-    const val MAX_LABEL = 24
+    const val MAX_LABEL = HudControl.MAX_LABEL
 
     private const val MIN_SIDE = 16f
     private const val MAX_SIDE = 400f
@@ -162,6 +166,7 @@ object HudTransfer {
             scheme = layout.scheme,
             sizeScale = layout.shownSizeScale,
             invertY = layout.invertY,
+            template = layout.template?.let { HudPresets.byName(it)?.name },
         )
         layout.controls.asSequence()
             .mapNotNull(::control)

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -41,7 +42,9 @@ import net.millida.launcher.core.hud.HudIcons
 import net.millida.launcher.core.input.TouchGestures
 import net.millida.launcher.core.hud.HudKeys
 import net.millida.launcher.core.hud.HudKind
+import net.millida.launcher.core.i18n.I18n
 import net.millida.launcher.core.i18n.tr
+import net.millida.launcher.core.i18n.trText
 import net.millida.launcher.runtime.GameInputSink
 
 private const val REPEAT_DELAY_MS = 500L
@@ -384,8 +387,12 @@ private fun HudLabel(
             MIcon(icon, size = 16.dp, color = look.ink)
             Spacer(Modifier.width(6.dp))
         }
+        // Preset labels are stored untranslated and follow the language; a label
+        // the player typed, or one saved translated by an older build, shows as is.
+        val language by I18n.locale.collectAsState()
+        val shown = remember(label, language) { trText(label) }
         Text(
-            label,
+            shown,
             color = look.ink,
             style = MillidaType.button.copy(
                 fontSize = (11 + 3 * control.scale.coerceAtMost(1.4f)).sp,

@@ -519,6 +519,15 @@ private fun ControlsSection(state: UiState, model: LauncherViewModel, modifier: 
         MSwitchRow(tr("Вибрация"), null, state.haptics, model::setHaptics)
         MDivider()
         MSwitchRow(tr("Автопрыжок"), null, state.autoJump, model::setAutoJump)
+        MDivider()
+        // The editor stands over the running game, so it is not reachable from here: the row says where it is.
+        MListRow(
+            title = tr("Раскладки, кнопки, импорт и экспорт"),
+            subtitle = tr("В игре: «Меню» → «Настроить управление» → «Раскладки»"),
+            icon = MIcons.grid,
+            plate = false,
+            onClick = null,
+        )
     }
 }
 

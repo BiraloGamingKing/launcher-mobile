@@ -1,11 +1,13 @@
 package net.millida.launcher.core
 
+import net.millida.launcher.core.hud.HudKeys
 import net.millida.launcher.core.input.AndroidKeys
 import net.millida.launcher.core.input.CursorMapping
 import net.millida.launcher.core.input.GamepadMap
 import net.millida.launcher.core.input.GlfwCodes
 import net.millida.launcher.core.input.KeyCodes
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -120,6 +122,15 @@ class KeyCodesTest {
                 case.expected,
                 CursorMapping.toWindow(case.x, case.y, case.view.first, case.view.second, case.window.first, case.window.second),
             )
+        }
+    }
+
+    @Test
+    fun `каждая клавиша кнопок доходит до игры по обоим путям`() {
+        HudKeys.bindable.forEach { (code, name) ->
+            val android = KeyCodes.android(code)
+            assertNotNull("клавиша «$name» ($code) молча пропадёт на пути SDL3: нет кода Android", android)
+            assertEquals("клавиша «$name» должна вернуться в себя", code, KeyCodes.glfw(android!!))
         }
     }
 }

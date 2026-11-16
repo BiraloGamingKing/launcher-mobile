@@ -1,6 +1,10 @@
 package net.millida.launcher.core
 
 import net.millida.launcher.core.hud.Hotbar
+import net.millida.launcher.core.hud.HudControl
+import net.millida.launcher.core.hud.HudTransfer
+import net.millida.launcher.core.i18n.I18n
+import net.millida.launcher.core.i18n.Locales
 import net.millida.launcher.core.hud.HudKeys
 import net.millida.launcher.core.hud.HudKind
 import net.millida.launcher.core.hud.HudPresets
@@ -10,6 +14,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -226,5 +231,129 @@ class HudLayoutTest {
             "Esc с автоповтором открывал бы и закрывал паузу по кругу, пока палец держит кнопку",
             HudKeys.ESCAPE.takeIf { HudKeys.repeats(it) },
         )
+    }
+
+    @After
+    fun backToRussian() {
+        I18n.install(read = { null }, initial = Locales.SOURCE)
+    }
+
+    @Test
+    fun `на кнопку ставится любая клавиша полной клавиатуры`() {
+        data class Case(val code: Int, val why: String)
+
+        val cases = listOf(
+            Case(HudKeys.RIGHT_SHIFT, "правый Shift открывает меню модов Millida"),
+            Case(HudKeys.RIGHT_CONTROL, "правый Ctrl"),
+            Case(HudKeys.RIGHT_ALT, "правый Alt"),
+            Case(HudKeys.INSERT, "Insert"),
+            Case(HudKeys.DELETE, "Delete"),
+            Case(HudKeys.HOME, "Home"),
+            Case(HudKeys.END, "End"),
+            Case(HudKeys.PAGE_UP, "Page Up"),
+            Case(HudKeys.PAGE_DOWN, "Page Down"),
+            Case(HudKeys.CAPS_LOCK, "Caps Lock"),
+            Case(HudKeys.GRAVE, "тильда — консоль модов"),
+            Case(HudKeys.MINUS, "минус"),
+            Case(HudKeys.BACKSLASH, "обратная косая"),
+            Case(HudKeys.KP_0, "цифра 0 цифрового блока"),
+            Case(HudKeys.KP_9, "цифра 9 цифрового блока"),
+            Case(HudKeys.KP_ADD, "плюс цифрового блока"),
+            Case(HudKeys.KP_ENTER, "Enter цифрового блока"),
+        )
+        val control = HudControl("k", "K", HudKind.KEY, code = HudKeys.SPACE)
+        for (case in cases) {
+            assertTrue("${case.why}: клавиша должна быть в списке", HudKeys.isBindable(case.code))
+            assertEquals("${case.why}: переназначение принимает клавишу", listOf(case.code), control.withKeys(listOf(case.code)).keys)
+        }
+        assertEquals(
+            "сочетание с новыми клавишами держится вместе",
+            listOf(HudKeys.RIGHT_CONTROL, HudKeys.KP_ADD),
+            control.withKeys(listOf(HudKeys.RIGHT_CONTROL, HudKeys.KP_ADD)).keys,
+        )
+        assertTrue("у каждой клавиши своё имя, иначе две кнопки не различить", HudKeys.bindable.map { it.second }.toSet().size == HudKeys.bindable.size)
+        assertEquals(
+            "группы выбора содержат каждую клавишу ровно один раз",
+            HudKeys.bindable.map { it.first }.sorted(),
+            HudKeys.groups.flatMap { it.codes }.sorted(),
+        )
+    }
+
+    @Test
+    fun `каждая клавиша переживает экспорт и импорт`() {
+        HudKeys.bindable.forEach { (code, name) ->
+            val layout = HudPresets.bedrock().add(HudControl("k", name, HudKind.KEY, code = code))
+            val back = HudTransfer.decode(HudTransfer.encode(layout))
+            assertEquals("клавиша «$name» ($code) потерялась при переносе", code, back?.controls?.firstOrNull { it.id == "k" }?.code)
+        }
+        val combo = HudPresets.bedrock().add(
+            HudControl("k", "K", HudKind.KEY).withKeys(listOf(HudKeys.RIGHT_SHIFT, HudKeys.GRAVE, HudKeys.KP_DIVIDE)),
+        )
+        assertEquals(
+            "сочетание из новых клавиш переносится целиком",
+            listOf(HudKeys.RIGHT_SHIFT, HudKeys.GRAVE, HudKeys.KP_DIVIDE),
+            HudTransfer.decode(HudTransfer.encode(combo))?.controls?.first { it.id == "k" }?.keys,
+        )
+    }
+
+    @Test
+    fun `новая клавиша переименовывает только автоматическую подпись`() {
+        data class Case(val label: String, val keys: List<Int>, val next: List<Int>, val expected: String, val why: String)
+
+        val cases = listOf(
+            Case("W", listOf(HudKeys.W), listOf(HudKeys.A), "A", "подпись из имени клавиши следует за клавишей"),
+            Case("F5", listOf(HudKeys.F5), listOf(HudKeys.RIGHT_SHIFT), "RShift", "подпись готовой кнопки тоже автоматическая"),
+            Case("", listOf(HudKeys.W), listOf(HudKeys.F3), "F3", "пустая подпись получает имя клавиши"),
+            Case("Ctrl+W", listOf(HudKeys.LEFT_CONTROL, HudKeys.W), listOf(HudKeys.LEFT_CONTROL, HudKeys.Q), "Ctrl+Q", "сочетание подписывается целиком"),
+            Case("W", listOf(HudKeys.W), listOf(HudKeys.SPACE), "Пробел", "подпись хранится непереведённой, чтобы следовать за языком"),
+            Case("Прыжок", listOf(HudKeys.SPACE), listOf(HudKeys.W), "Прыжок", "своё название игрока не затирается"),
+            Case("Меню модов", listOf(HudKeys.RIGHT_SHIFT), listOf(HudKeys.F3), "Меню модов", "придуманное название остаётся"),
+        )
+        for (case in cases) {
+            val control = HudControl("k", case.label, HudKind.KEY).withKeys(case.keys)
+            assertEquals(case.why, case.expected, control.rebound(case.next).label)
+        }
+        assertEquals(
+            "подпись укорачивается до предела, как при вводе",
+            HudControl.MAX_LABEL,
+            HudControl("k", "x", HudKind.KEY).withLabel("Я".repeat(100)).label.length,
+        )
+    }
+
+    @Test
+    fun `готовые раскладки хранят имена и подписи непереведёнными`() {
+        I18n.install(read = { if (it == "en") """{"Джойстик": "Joystick", "Прыжок": "Jump", "Моды/PvP": "Mods/PvP"}""" else null }, initial = "en")
+        HudPresets.all().forEach { preset ->
+            assertEquals("имя «${preset.name}» не должно зависеть от языка, иначе шаблон не узнать после смены языка", preset.name, I18n.source(preset.name))
+            assertTrue("«${preset.name}» — русский ключ перевода", preset.name.any { it in 'А'..'я' })
+        }
+        assertEquals("имя хранится ключом", "Джойстик", HudPresets.stick().name)
+        assertEquals("подпись хранится ключом и переводится при показе", "Прыжок", HudPresets.minimal().controls.first { it.id == "jump" }.label)
+        assertEquals("раскладка, сохранённая старой сборкой в переводе, всё равно узнаётся", HudPresets.STICK, HudPresets.byName("Joystick")?.name)
+        I18n.setLocale(Locales.SOURCE)
+        assertEquals("и после смены языка шаблон находится по ключу", HudPresets.STICK, HudPresets.byName(HudPresets.STICK)?.name)
+    }
+
+    @Test
+    fun `раскладка Моды и PvP даёт то, чего нет без клавиатуры`() {
+        data class Case(val id: String, val kind: HudKind, val code: Int, val why: String)
+
+        val preset = HudPresets.mods()
+        val cases = listOf(
+            Case("debug", HudKind.KEY, HudKeys.F3, "F3 — экран отладки"),
+            Case("mod-menu", HudKind.KEY, HudKeys.RIGHT_SHIFT, "правый Shift открывает меню модов Millida"),
+            Case("slot-prev", HudKind.SCROLL, HudKeys.SCROLL_UP, "колесо назад листает хотбар"),
+            Case("slot-next", HudKind.SCROLL, HudKeys.SCROLL_DOWN, "колесо вперёд листает хотбар"),
+            Case("middle", HudKind.MOUSE, HudKeys.MOUSE_MIDDLE, "средняя кнопка мыши"),
+        )
+        for (case in cases) {
+            val control = preset.controls.firstOrNull { it.id == case.id }
+            assertNotNull("нет кнопки «${case.id}»: ${case.why}", control)
+            assertEquals("вид «${case.id}»: ${case.why}", case.kind, control!!.kind)
+            assertEquals("клавиша «${case.id}»: ${case.why}", case.code, control.code)
+        }
+        assertEquals("подпись правого Shift", "Меню Millida", preset.controls.first { it.id == "mod-menu" }.label)
+        assertEquals("раскладка находится по имени для сброса кнопок", preset.controls, HudPresets.byName(HudPresets.MODS)?.controls)
+        assertTrue("правый Shift не повторяется, иначе меню мигает", !HudKeys.repeats(HudKeys.RIGHT_SHIFT))
     }
 }

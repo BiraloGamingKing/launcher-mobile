@@ -2,6 +2,7 @@ package net.millida.launcher.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,13 +18,20 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -47,6 +55,7 @@ import net.millida.launcher.core.hud.HudPresets
 import net.millida.launcher.core.hud.HudProfiles
 import net.millida.launcher.core.hud.HudTransfer
 import net.millida.launcher.core.hud.HudVisibility
+import net.millida.launcher.core.input.KeyCodes
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -233,11 +242,11 @@ private fun SelectedControl(
     onRemove: (String) -> Unit,
 ) {
     val colors = millida
-    val canReset = (HudPresets.byName(layout.name) ?: HudPresets.bedrock()).controls.any { it.id == selected.id }
+    val canReset = (layout.preset ?: HudPresets.bedrock()).controls.any { it.id == selected.id }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                tr("Кнопка «{label}»", selected.label),
+                tr("Кнопка «{label}»", trText(selected.label)),
                 modifier = Modifier.weight(1f),
                 style = MillidaType.rowTitle,
                 color = colors.fg,
@@ -298,16 +307,101 @@ private fun SelectedControl(
                 label = { it.label },
             )
         }
+        if (selected.kind != HudKind.STICK && selected.kind != HudKind.FLOAT_STICK) {
+            LabelAndIcon(selected, onChange, onSlide)
+        }
         if (selected.rebindable) {
             KeyBinding(selected, onChange)
         }
     }
 }
 
+private val ICONS: List<Pair<String, String>> = listOf(
+    HudIcons.PAUSE to trKey("Пауза"),
+    HudIcons.CHAT to trKey("Чат"),
+    HudIcons.CAMERA to trKey("Вид"),
+    HudIcons.PLAYERS to trKey("Игроки"),
+    HudIcons.MORE to trKey("Ещё"),
+    HudIcons.JUMP to trKey("Прыжок"),
+    HudIcons.SNEAK to trKey("Присесть"),
+    HudIcons.UP to trKey("Вверх"),
+    HudIcons.DOWN to trKey("Вниз"),
+    HudIcons.CLOSE to trKey("Закрыть"),
+    HudIcons.DROP to trKey("Бросить"),
+    HudIcons.USE to trKey("Действие"),
+)
+
+/** The button's own name and picture. Typing goes through [onSlide], so a word is one undo step, not a letter. */
+@Composable
+private fun LabelAndIcon(selected: HudControl, onChange: (HudControl) -> Unit, onSlide: (HudControl) -> Unit) {
+    var draft by remember(selected.id) { mutableStateOf(trText(selected.label)) }
+    // A new key renames an automatic label, and undo brings an old one back: the field follows.
+    LaunchedEffect(selected.label) {
+        if (selected.label != draft) draft = trText(selected.label)
+    }
+    EditorRow(tr("Название")) {
+        MField(
+            value = draft,
+            onValueChange = { text ->
+                draft = text.take(HudControl.MAX_LABEL)
+                onSlide(selected.withLabel(draft))
+            },
+            placeholder = HudKeys.autoLabel(selected.keys).let(::trText).takeIf { selected.rebindable } ?: tr("Название"),
+        )
+    }
+    MSectionTitle(tr("ИКОНКА"))
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        MChip(tr("Без иконки"), selected = selected.icon == null, onClick = { onChange(selected.withIcon(null)) })
+        ICONS.forEach { (id, name) ->
+            MChip(tr(name), selected = selected.icon == id, onClick = { onChange(selected.withIcon(id)) }, icon = hudIcon(id))
+        }
+    }
+    if (selected.icon != null) {
+        Text(tr("С иконкой название на кнопке не показывается"), style = MillidaType.small, color = millida.fgSubtle)
+    }
+}
+
+/**
+ * Keys of the selected button. «Сменить» and «Сочетание» open the keyboard by
+ * groups; «Нажмите клавишу» takes the next key (or keys held together) from a
+ * physical keyboard. While waiting, Esc and Back cancel instead of being
+ * taken: they are how a player backs out, and Esc stays one tap away in
+ * «Основные».
+ */
 @Composable
 private fun KeyBinding(selected: HudControl, onChange: (HudControl) -> Unit) {
     var pick by remember(selected.id) { mutableStateOf<KeyPick?>(null) }
+    var capturing by remember(selected.id) { mutableStateOf(false) }
+    var note by remember(selected.id) { mutableStateOf<String?>(null) }
+    val held = remember(selected.id) { mutableListOf<Int>() }
+    val focus = remember { FocusRequester() }
     val keys = selected.keys
+    var group by remember(selected.id) {
+        mutableIntStateOf(HudKeys.groups.indexOfFirst { keys.first() in it.codes }.coerceAtLeast(0))
+    }
+
+    fun assign(codes: List<Int>) {
+        onChange(selected.rebound(if (pick == KeyPick.ADD) keys + codes else codes))
+        pick = null
+        capturing = false
+    }
+
+    fun stopCapture() {
+        capturing = false
+        held.clear()
+    }
+
+    LaunchedEffect(capturing) {
+        if (capturing) {
+            held.clear()
+            note = null
+            runCatching { focus.requestFocus() }
+        }
+    }
+
     MSectionTitle(tr("КЛАВИШИ"))
     Row(
         Modifier.horizontalScroll(rememberScrollState()),
@@ -318,7 +412,7 @@ private fun KeyBinding(selected: HudControl, onChange: (HudControl) -> Unit) {
             MChip(
                 HudKeys.name(code),
                 selected = true,
-                onClick = { if (keys.size > 1) onChange(selected.withKeys(keys - code)) },
+                onClick = { if (keys.size > 1) onChange(selected.rebound(keys - code)) },
                 icon = if (keys.size > 1) MIcons.close else null,
             )
         }
@@ -335,17 +429,68 @@ private fun KeyBinding(selected: HudControl, onChange: (HudControl) -> Unit) {
             )
         }
     }
+    Row(
+        Modifier
+            .focusRequester(focus)
+            .onPreviewKeyEvent { event ->
+                if (!capturing) return@onPreviewKeyEvent false
+                val native = event.nativeKeyEvent
+                val code = KeyCodes.glfw(native.keyCode)
+                when (event.type) {
+                    KeyEventType.KeyDown -> when {
+                        native.repeatCount > 0 -> Unit
+                        native.keyCode == android.view.KeyEvent.KEYCODE_BACK ||
+                            (code == HudKeys.ESCAPE && held.isEmpty()) -> stopCapture()
+                        HudKeys.isBindable(code) -> if (code !in held && held.size < HudControl.MAX_KEYS) held += code
+                        else -> note = tr("Эту клавишу на кнопку не поставить")
+                    }
+                    KeyEventType.KeyUp -> if (held.isNotEmpty()) {
+                        val codes = held.toList()
+                        held.clear()
+                        assign(codes)
+                    }
+                    else -> Unit
+                }
+                true
+            }
+            .focusable(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MSecondaryButton(
+            if (capturing) tr("Отмена") else tr("Нажмите клавишу"),
+            onClick = { if (capturing) stopCapture() else capturing = true },
+            icon = if (capturing) MIcons.close else MIcons.key,
+            size = MButtonSize.Small,
+        )
+        if (capturing) {
+            Text(
+                note ?: tr("Нажми на клавиатуре клавишу или сочетание, Esc — отмена"),
+                modifier = Modifier.weight(1f),
+                style = MillidaType.small,
+                color = millida.fgSubtle,
+            )
+        }
+    }
     val mode = pick ?: return
     Row(
         Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        HudKeys.bindable.forEach { (code, name) ->
+        HudKeys.groups.forEachIndexed { index, each ->
+            MChip(tr(each.title), selected = index == group, onClick = { group = index })
+        }
+    }
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        HudKeys.groups[group].codes.forEach { code ->
             MChip(
-                name,
+                HudKeys.name(code),
                 selected = code in keys,
                 onClick = {
-                    onChange(selected.withKeys(if (mode == KeyPick.REPLACE) listOf(code) else keys + code))
+                    onChange(selected.rebound(if (mode == KeyPick.REPLACE) listOf(code) else keys + code))
                     pick = null
                 },
             )
@@ -371,7 +516,7 @@ private fun ProfilesTab(
     }
 
     fun commitRename() {
-        onProfiles(profiles.rename(active, draft))
+        if (draft.trim() != trText(active).trim()) onProfiles(profiles.rename(active, draft))
         renaming = false
     }
 
@@ -412,7 +557,7 @@ private fun ProfilesTab(
     }
     val saveFile = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val text = HudTransfer.encode(profiles.layout)
+        val text = HudTransfer.encode(profiles.exported)
         scope.launch {
             val written = withContext(Dispatchers.IO) {
                 runCatching {
@@ -451,7 +596,7 @@ private fun ProfilesTab(
         }
         confirmDelete -> Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                tr("Удалить «{active}»?", active),
+                tr("Удалить «{active}»?", trText(active)),
                 modifier = Modifier.weight(1f),
                 style = MillidaType.body,
                 color = millida.fg,
@@ -471,7 +616,7 @@ private fun ProfilesTab(
             MSecondaryButton(tr("Новая"), onClick = { create(profiles.create(HudProfiles.NEW_NAME)) }, icon = MIcons.plus, size = MButtonSize.Small)
             MSecondaryButton(tr("Копия"), onClick = { create(profiles.duplicate()) }, icon = MIcons.copy, size = MButtonSize.Small)
             MSecondaryButton(tr("Переименовать"), onClick = {
-                draft = active
+                draft = trText(active)
                 renaming = true
             }, icon = MIcons.edit, size = MButtonSize.Small)
             MDangerButton(tr("Удалить"), onClick = { confirmDelete = true }, enabled = profiles.names.size > 1, icon = MIcons.trash)
@@ -483,10 +628,11 @@ private fun ProfilesTab(
         Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        val template = profiles.layout.preset?.name
         HudPresets.all().forEach { preset ->
             MChip(
-                preset.name,
-                selected = preset.name == profiles.layout.name,
+                tr(preset.name),
+                selected = preset.name == template,
                 onClick = { onPreset(preset) },
             )
         }
@@ -497,7 +643,7 @@ private fun ProfilesTab(
         MSecondaryButton(
             tr("Скопировать"),
             onClick = {
-                clipboard.setText(AnnotatedString(HudTransfer.encode(profiles.layout)))
+                clipboard.setText(AnnotatedString(HudTransfer.encode(profiles.exported)))
                 onNotice(tr("Раскладка скопирована"))
             },
             icon = MIcons.copy,
@@ -519,7 +665,7 @@ private fun ProfilesTab(
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         MSecondaryButton(tr("Из файла"), onClick = { openFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, icon = MIcons.folder, size = MButtonSize.Small)
-        MSecondaryButton(tr("В файл"), onClick = { saveFile.launch(fileName(profiles.activeName)) }, icon = MIcons.upload, size = MButtonSize.Small)
+        MSecondaryButton(tr("В файл"), onClick = { saveFile.launch(fileName(trText(profiles.activeName))) }, icon = MIcons.upload, size = MButtonSize.Small)
     }
     Text(
         tr("Подходят раскладки Millida, FCL, Zalith и PojavLauncher"),
@@ -637,20 +783,23 @@ private fun EditorRow(label: String, content: @Composable () -> Unit) {
 }
 
 private val addable: List<Pair<String, () -> HudControl>> get() = listOf(
-    tr("Прыжок") to { key("jump", tr("Прыжок"), HudKeys.SPACE, wide = true) },
-    tr("Присесть") to { key("sneak", tr("Присесть"), HudKeys.LEFT_SHIFT, wide = true, toggle = true) },
-    tr("Бег") to { key("sprint", tr("Бег"), HudKeys.LEFT_CONTROL, wide = true, toggle = true) },
+    tr("Прыжок") to { key("jump", trKey("Прыжок"), HudKeys.SPACE, wide = true) },
+    tr("Присесть") to { key("sneak", trKey("Присесть"), HudKeys.LEFT_SHIFT, wide = true, toggle = true) },
+    tr("Бег") to { key("sprint", trKey("Бег"), HudKeys.LEFT_CONTROL, wide = true, toggle = true) },
     "W" to { key("forward", "W", HudKeys.W) },
     "A" to { key("left", "A", HudKeys.A) },
     "S" to { key("back", "S", HudKeys.S) },
     "D" to { key("right", "D", HudKeys.D) },
-    tr("Инвентарь") to { key("inventory", tr("Инвентарь"), HudKeys.E, wide = true) },
-    tr("Чат") to { key("chat", tr("Чат"), HudKeys.T, wide = true) },
-    tr("Бросить") to { key("drop", tr("Бросить"), HudKeys.Q, wide = true) },
-    tr("Выбрать") to { key("pick", tr("Выбрать"), HudKeys.F, wide = true) },
+    tr("Инвентарь") to { key("inventory", trKey("Инвентарь"), HudKeys.E, wide = true) },
+    tr("Чат") to { key("chat", trKey("Чат"), HudKeys.T, wide = true) },
+    tr("Бросить") to { key("drop", trKey("Бросить"), HudKeys.Q, wide = true) },
+    tr("Выбрать") to { key("pick", trKey("Выбрать"), HudKeys.F, wide = true) },
     tr("Меню игры") to { key("escape", "Esc", HudKeys.ESCAPE, wide = true, visibility = HudVisibility.ALWAYS) },
-    tr("Список") to { key("tab", tr("Игроки"), HudKeys.TAB, wide = true) },
+    tr("Список") to { key("tab", trKey("Игроки"), HudKeys.TAB, wide = true) },
     tr("Отладка") to { key("debug", "F3", HudKeys.F3, wide = true) },
+    tr("Меню Millida") to {
+        key("mod-menu", trKey("Меню Millida"), HudKeys.RIGHT_SHIFT, visibility = HudVisibility.ALWAYS).copy(width = 120f)
+    },
     tr("Интерфейс F1") to { key("hide", "F1", HudKeys.F1) },
     tr("Скриншот F2") to { key("screenshot", "F2", HudKeys.F2) },
     tr("Вид F5") to { key("camera", "F5", HudKeys.F5) },
@@ -663,16 +812,16 @@ private val addable: List<Pair<String, () -> HudControl>> get() = listOf(
     tr("Слот 7") to { key("slot7", "7", HudKeys.SEVEN) },
     tr("Слот 8") to { key("slot8", "8", HudKeys.EIGHT) },
     tr("Слот 9") to { key("slot9", "9", HudKeys.NINE) },
-    tr("Слот назад") to { wheel("slot-prev", tr("Слот −"), HudKeys.SCROLL_UP) },
-    tr("Слот вперёд") to { wheel("slot-next", tr("Слот +"), HudKeys.SCROLL_DOWN) },
-    tr("Удар") to { mouse("hit", tr("Удар"), HudKeys.MOUSE_LEFT) },
-    tr("Действие") to { mouse("use", tr("Действие"), HudKeys.MOUSE_RIGHT) },
-    tr("Средняя") to { mouse("middle", tr("Копировать"), HudKeys.MOUSE_MIDDLE) },
-    tr("Клавиатура") to { action("keyboard", tr("Клавиатура"), HudAction.KEYBOARD, 140f) },
-    tr("Меню") to { action("menu", tr("Меню"), HudAction.MENU, 96f) },
-    tr("Курсор") to { action("mode", tr("Курсор"), HudAction.POINTER_MODE, 104f) },
+    tr("Слот назад") to { wheel("slot-prev", trKey("Слот −"), HudKeys.SCROLL_UP) },
+    tr("Слот вперёд") to { wheel("slot-next", trKey("Слот +"), HudKeys.SCROLL_DOWN) },
+    tr("Удар") to { mouse("hit", trKey("Удар"), HudKeys.MOUSE_LEFT) },
+    tr("Действие") to { mouse("use", trKey("Действие"), HudKeys.MOUSE_RIGHT) },
+    tr("Средняя") to { mouse("middle", trKey("Копировать"), HudKeys.MOUSE_MIDDLE) },
+    tr("Клавиатура") to { action("keyboard", trKey("Клавиатура"), HudAction.KEYBOARD, 140f) },
+    tr("Меню") to { action("menu", trKey("Меню"), HudAction.MENU, 96f) },
+    tr("Курсор") to { action("mode", trKey("Курсор"), HudAction.POINTER_MODE, 104f) },
     tr("Джойстик") to {
-        HudControl("stick", tr("Ходьба"), HudKind.STICK, x = 0.5f, y = 0.5f, width = 176f, height = 176f)
+        HudControl("stick", trKey("Ходьба"), HudKind.STICK, x = 0.5f, y = 0.5f, width = 176f, height = 176f)
     },
     tr("Джойстик под палец") to { HudPresets.base(HudKind.FLOAT_STICK).copy(x = 0.15f, y = 0.72f) },
     tr("Прыжок и полёт") to { HudPresets.base(HudKind.JUMP).copy(icon = HudIcons.JUMP) },

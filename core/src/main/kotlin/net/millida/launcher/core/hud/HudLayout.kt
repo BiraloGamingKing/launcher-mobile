@@ -5,6 +5,7 @@ import kotlin.math.roundToInt
 
 import net.millida.launcher.core.i18n.tr
 import net.millida.launcher.core.i18n.trKey
+
 @Serializable
 enum class HudKind {
     STICK,
@@ -99,6 +100,17 @@ data class HudControl(
         return copy(code = clean.first(), codes = if (clean.size == 1) emptyList() else clean)
     }
 
+    /** New keys, and a label that only named the old keys names the new ones; a label the player chose stays. */
+    fun rebound(next: List<Int>): HudControl {
+        val bound = withKeys(next)
+        if (bound.keys == keys) return bound
+        return if (HudKeys.isAutoLabel(label, keys)) bound.copy(label = HudKeys.autoLabel(bound.keys)) else bound
+    }
+
+    fun withLabel(next: String): HudControl = copy(label = next.filterNot { it.isISOControl() }.take(MAX_LABEL))
+
+    fun withIcon(next: String?): HudControl = copy(icon = next?.takeIf { it in HudIcons.all })
+
     private val base: HudControl
         get() = HudPresets.base(kind)
 
@@ -109,6 +121,7 @@ data class HudControl(
         const val MIN_SCALE = 0.6f
         const val MAX_SCALE = 2.2f
         const val MAX_KEYS = 3
+        const val MAX_LABEL = 24
         const val SNAP_GRID = 8f
     }
 }
@@ -128,7 +141,7 @@ enum class ControlScheme {
 
 @Serializable
 data class HudLayout(
-    val name: String = tr("Своя раскладка"),
+    val name: String = trKey("Своя раскладка"),
     val controls: List<HudControl> = emptyList(),
     val opacity: Float = DEFAULT_OPACITY,
     val lookTap: Int = HudKeys.MOUSE_LEFT,
@@ -138,6 +151,8 @@ data class HudLayout(
     /** Every button and stick drawn this many times its own size. */
     val sizeScale: Float = 1f,
     val invertY: Boolean = false,
+    /** The preset a renamed layout came from: [reset] still finds its buttons. Absent while the name is the preset's own. */
+    val template: String? = null,
 ) {
     fun replace(control: HudControl): HudLayout =
         copy(controls = controls.map { if (it.id == control.id) control else it })
@@ -198,9 +213,20 @@ data class HudLayout(
 
     /** Puts a control back the way the layout's template has it; a control the template lacks stays. */
     fun reset(id: String): HudLayout {
-        val original = (HudPresets.byName(name) ?: HudPresets.bedrock()).controls.firstOrNull { it.id == id }
+        val original = (preset ?: HudPresets.bedrock()).controls.firstOrNull { it.id == id }
             ?: return this
         return replace(original)
+    }
+
+    /** The preset this layout started from, by its own name or the one kept through a rename. */
+    val preset: HudLayout?
+        get() = HudPresets.byName(template ?: name) ?: template?.let { HudPresets.byName(name) }
+
+    /** The same layout under the player's name; the preset it came from is remembered for [reset]. */
+    fun named(next: String): HudLayout {
+        if (next == name) return this
+        val from = template ?: name.takeIf { HudPresets.byName(it) != null }
+        return copy(name = next, template = from?.let { HudPresets.byName(it)?.name })
     }
 
     val shownOpacity: Float
@@ -225,6 +251,11 @@ data class HudLayout(
 
 object HudKeys {
     const val SPACE = 32
+    const val APOSTROPHE = 39
+    const val COMMA = 44
+    const val MINUS = 45
+    const val PERIOD = 46
+    const val SLASH = 47
     const val ZERO = 48
     const val ONE = 49
     const val TWO = 50
@@ -235,6 +266,8 @@ object HudKeys {
     const val SEVEN = 55
     const val EIGHT = 56
     const val NINE = 57
+    const val SEMICOLON = 59
+    const val EQUALS = 61
     const val A = 65
     const val D = 68
     const val E = 69
@@ -244,22 +277,45 @@ object HudKeys {
     const val T = 84
     const val W = 87
     const val Z = 90
+    const val LEFT_BRACKET = 91
+    const val BACKSLASH = 92
+    const val RIGHT_BRACKET = 93
+    const val GRAVE = 96
     const val ESCAPE = 256
     const val ENTER = 257
     const val TAB = 258
     const val BACKSPACE = 259
+    const val INSERT = 260
+    const val DELETE = 261
     const val RIGHT = 262
     const val LEFT = 263
     const val DOWN = 264
     const val UP = 265
+    const val PAGE_UP = 266
+    const val PAGE_DOWN = 267
+    const val HOME = 268
+    const val END = 269
+    const val CAPS_LOCK = 280
     const val F1 = 290
     const val F2 = 291
     const val F3 = 292
     const val F5 = 294
     const val F12 = 301
+    const val KP_0 = 320
+    const val KP_9 = 329
+    const val KP_DECIMAL = 330
+    const val KP_DIVIDE = 331
+    const val KP_MULTIPLY = 332
+    const val KP_SUBTRACT = 333
+    const val KP_ADD = 334
+    const val KP_ENTER = 335
+    const val KP_EQUAL = 336
     const val LEFT_SHIFT = 340
     const val LEFT_CONTROL = 341
     const val LEFT_ALT = 342
+    const val RIGHT_SHIFT = 344
+    const val RIGHT_CONTROL = 345
+    const val RIGHT_ALT = 346
 
     const val MOUSE_LEFT = 0
     const val MOUSE_RIGHT = 1
@@ -273,38 +329,110 @@ object HudKeys {
     // The game acts on every repeat, so keys that open or switch something must not repeat.
     fun repeats(code: Int): Boolean = code !in NO_REPEAT
 
-    private val NO_REPEAT = setOf(
-        E, T, TAB, ESCAPE, ENTER, F1, F2, F3, F5,
-        LEFT_SHIFT, LEFT_CONTROL, ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE,
-    )
+    private val NO_REPEAT: Set<Int> = setOf(
+        E, T, TAB, ESCAPE, ENTER, KP_ENTER, CAPS_LOCK,
+        LEFT_SHIFT, LEFT_CONTROL, LEFT_ALT, RIGHT_SHIFT, RIGHT_CONTROL, RIGHT_ALT,
+        ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE,
+    ) + (F1..F12)
 
-    private val special: List<Pair<Int, String>> get() = listOf(
-        SPACE to tr("Пробел"),
+    /** A row of the key picker: [title] is an untranslated key, shown through tr(). */
+    data class Group(val title: String, val codes: List<Int>)
+
+    /**
+     * Keys a player can put on a button: the whole desk keyboard a mod may bind,
+     * without the system keys (Win, Print Screen) the phone keeps for itself.
+     * A name is an untranslated key where it is a word, so a label made from it
+     * follows the language.
+     */
+    private val sources: List<Pair<Int, String>> = listOf(
+        SPACE to trKey("Пробел"),
+        ESCAPE to "Esc",
+        ENTER to "Enter",
+        TAB to "Tab",
+        BACKSPACE to "Backspace",
         LEFT_SHIFT to "Shift",
         LEFT_CONTROL to "Ctrl",
         LEFT_ALT to "Alt",
-        TAB to "Tab",
-        ESCAPE to "Esc",
-        ENTER to "Enter",
-        BACKSPACE to "Backspace",
-        UP to tr("Вверх"),
-        DOWN to tr("Вниз"),
-        LEFT to tr("Влево"),
-        RIGHT to tr("Вправо"),
+        RIGHT_SHIFT to "RShift",
+        RIGHT_CONTROL to "RCtrl",
+        RIGHT_ALT to "RAlt",
+        CAPS_LOCK to "Caps Lock",
+        UP to trKey("Вверх"),
+        DOWN to trKey("Вниз"),
+        LEFT to trKey("Влево"),
+        RIGHT to trKey("Вправо"),
+        INSERT to "Insert",
+        DELETE to "Delete",
+        HOME to "Home",
+        END to "End",
+        PAGE_UP to "PgUp",
+        PAGE_DOWN to "PgDn",
+        MINUS to "-",
+        EQUALS to "=",
+        LEFT_BRACKET to "[",
+        RIGHT_BRACKET to "]",
+        BACKSLASH to "\\",
+        SEMICOLON to ";",
+        APOSTROPHE to "'",
+        COMMA to ",",
+        PERIOD to ".",
+        SLASH to "/",
+        GRAVE to "`",
+        KP_DIVIDE to "Num /",
+        KP_MULTIPLY to "Num *",
+        KP_SUBTRACT to "Num -",
+        KP_ADD to "Num +",
+        KP_DECIMAL to "Num .",
+        KP_ENTER to "Num Enter",
+        KP_EQUAL to "Num =",
+    ) +
+        (A..Z).map { it to it.toChar().toString() } +
+        (ZERO..NINE).map { it to it.toChar().toString() } +
+        (F1..F12).map { it to "F${it - F1 + 1}" } +
+        (KP_0..KP_9).map { it to "Num ${it - KP_0}" }
+
+    val groups: List<Group> = listOf(
+        Group(trKey("Основные"), listOf(SPACE, ESCAPE, ENTER, TAB, BACKSPACE)),
+        Group(trKey("Буквы"), (A..Z).toList()),
+        Group(trKey("Цифры"), (ZERO..NINE).toList()),
+        Group(trKey("F-клавиши"), (F1..F12).toList()),
+        Group(trKey("Модификаторы"), listOf(LEFT_SHIFT, LEFT_CONTROL, LEFT_ALT, RIGHT_SHIFT, RIGHT_CONTROL, RIGHT_ALT, CAPS_LOCK)),
+        Group(trKey("Навигация"), listOf(UP, DOWN, LEFT, RIGHT, INSERT, DELETE, HOME, END, PAGE_UP, PAGE_DOWN)),
+        Group(trKey("Символы"), listOf(MINUS, EQUALS, LEFT_BRACKET, RIGHT_BRACKET, BACKSLASH, SEMICOLON, APOSTROPHE, COMMA, PERIOD, SLASH, GRAVE)),
+        Group(
+            trKey("Цифровой блок"),
+            (KP_0..KP_9).toList() + listOf(KP_DIVIDE, KP_MULTIPLY, KP_SUBTRACT, KP_ADD, KP_DECIMAL, KP_ENTER, KP_EQUAL),
+        ),
     )
 
-    /** Keys a player can put on a button: what a Minecraft keybinding usually lands on. */
-    val bindable: List<Pair<Int, String>> =
-        special +
-            (A..Z).map { it to it.toChar().toString() } +
-            (ZERO..NINE).map { it to it.toChar().toString() } +
-            (F1..F12).map { it to "F${it - F1 + 1}" }
+    private val sourceNames: Map<Int, String> = sources.toMap()
 
-    private val names: Map<Int, String> = bindable.toMap()
+    /** Every bindable key with its name in the current language. */
+    val bindable: List<Pair<Int, String>> get() = sources.map { (code, name) -> code to tr(name) }
 
-    fun isBindable(code: Int): Boolean = code in names
+    fun isBindable(code: Int): Boolean = code in sourceNames
 
-    fun name(code: Int): String = names[code] ?: "#$code"
+    /** The name to show now. */
+    fun name(code: Int): String = sourceNames[code]?.let { tr(it) } ?: "#$code"
+
+    /** The name to store in a label: untranslated, so the label follows the language. */
+    fun sourceName(code: Int): String = sourceNames[code] ?: "#$code"
+
+    /** The label a button gets from its keys, as stored. */
+    fun autoLabel(keys: List<Int>): String =
+        keys.joinToString("+") { sourceName(it) }.take(HudControl.MAX_LABEL)
+
+    /**
+     * Whether [label] only names keys (its own, or any one key as preset buttons
+     * such as «W» or «F5» do), so a new key may rename it. A name the player
+     * typed stays.
+     */
+    fun isAutoLabel(label: String, keys: List<Int>): Boolean {
+        val clean = label.trim()
+        if (clean.isEmpty()) return true
+        if (clean == autoLabel(keys) || clean == keys.joinToString("+") { name(it) }.take(HudControl.MAX_LABEL)) return true
+        return sources.any { (code, source) -> clean == source || clean == name(code) }
+    }
 }
 
 object Hotbar {
@@ -389,16 +517,20 @@ object HudPresets {
 
     val BEDROCK: String = trKey("Как в Bedrock")
     val CROSSHAIR: String = trKey("Прицел")
+    val STICK: String = trKey("Джойстик")
+    val BUTTONS: String = trKey("Кнопки")
+    val MINIMAL: String = trKey("Только обзор")
+    val MODS: String = trKey("Моды/PvP")
 
     fun base(kind: HudKind): HudControl = when (kind) {
-        HudKind.STICK -> HudControl("stick", tr("Ходьба"), HudKind.STICK, width = 176f, height = 176f)
-        HudKind.FLOAT_STICK -> HudControl("stick", tr("Ходьба"), HudKind.FLOAT_STICK, width = 120f, height = 120f)
-        HudKind.KEY -> HudControl("key", tr("Клавиша"), HudKind.KEY, width = 64f, height = 46f)
-        HudKind.MOUSE -> HudControl("mouse", tr("Кнопка мыши"), HudKind.MOUSE, width = 104f, height = 46f)
-        HudKind.ACTION -> HudControl("action", tr("Действие"), HudKind.ACTION, width = 104f, height = 44f)
-        HudKind.SCROLL -> HudControl("scroll", tr("Колесо"), HudKind.SCROLL, width = 64f, height = 46f)
-        HudKind.JUMP -> HudControl("jump", tr("Прыжок"), HudKind.JUMP, code = HudKeys.SPACE, width = 64f, height = 64f)
-        HudKind.HOTBAR_MORE -> HudControl("more", tr("Инвентарь"), HudKind.HOTBAR_MORE, code = HudKeys.E, width = 32f, height = 32f)
+        HudKind.STICK -> HudControl("stick", trKey("Ходьба"), HudKind.STICK, width = 176f, height = 176f)
+        HudKind.FLOAT_STICK -> HudControl("stick", trKey("Ходьба"), HudKind.FLOAT_STICK, width = 120f, height = 120f)
+        HudKind.KEY -> HudControl("key", trKey("Клавиша"), HudKind.KEY, width = 64f, height = 46f)
+        HudKind.MOUSE -> HudControl("mouse", trKey("Кнопка мыши"), HudKind.MOUSE, width = 104f, height = 46f)
+        HudKind.ACTION -> HudControl("action", trKey("Действие"), HudKind.ACTION, width = 104f, height = 44f)
+        HudKind.SCROLL -> HudControl("scroll", trKey("Колесо"), HudKind.SCROLL, width = 64f, height = 46f)
+        HudKind.JUMP -> HudControl("jump", trKey("Прыжок"), HudKind.JUMP, code = HudKeys.SPACE, width = 64f, height = 64f)
+        HudKind.HOTBAR_MORE -> HudControl("more", trKey("Инвентарь"), HudKind.HOTBAR_MORE, code = HudKeys.E, width = 32f, height = 32f)
     }
 
     private fun at(control: HudControl, centreX: Float, centreY: Float): HudControl =
@@ -465,18 +597,18 @@ object HudPresets {
         )
 
     private fun actions(): List<HudControl> = listOf(
-        at(action("mode", tr("Курсор"), HudAction.POINTER_MODE, 104f), 308f, 28f),
-        at(action("keyboard", tr("Клавиатура"), HudAction.KEYBOARD, 140f), 446f, 28f),
-        at(action("menu", tr("Меню"), HudAction.MENU, 96f), 580f, 28f),
+        at(action("mode", trKey("Курсор"), HudAction.POINTER_MODE, 104f), 308f, 28f),
+        at(action("keyboard", trKey("Клавиатура"), HudAction.KEYBOARD, 140f), 446f, 28f),
+        at(action("menu", trKey("Меню"), HudAction.MENU, 96f), 580f, 28f),
     )
 
     private fun rightHand(): List<HudControl> = listOf(
-        at(key("sneak", tr("Присесть"), HudKeys.LEFT_SHIFT, width = 104f, toggle = true), 452f, 190f),
-        at(key("jump", tr("Прыжок"), HudKeys.SPACE, width = 104f), 572f, 190f),
-        at(mouse("hit", tr("Удар"), HudKeys.MOUSE_LEFT), 452f, 250f),
-        at(mouse("use", tr("Действие"), HudKeys.MOUSE_RIGHT), 572f, 250f),
-        at(key("inventory", tr("Инвентарь"), HudKeys.E, width = 104f), 452f, 310f),
-        at(key("chat", tr("Чат"), HudKeys.T, width = 104f), 572f, 310f),
+        at(key("sneak", trKey("Присесть"), HudKeys.LEFT_SHIFT, width = 104f, toggle = true), 452f, 190f),
+        at(key("jump", trKey("Прыжок"), HudKeys.SPACE, width = 104f), 572f, 190f),
+        at(mouse("hit", trKey("Удар"), HudKeys.MOUSE_LEFT), 452f, 250f),
+        at(mouse("use", trKey("Действие"), HudKeys.MOUSE_RIGHT), 572f, 250f),
+        at(key("inventory", trKey("Инвентарь"), HudKeys.E, width = 104f), 452f, 310f),
+        at(key("chat", trKey("Чат"), HudKeys.T, width = 104f), 572f, 310f),
     )
 
     private fun iconAction(id: String, label: String, what: HudAction, icon: String, visibility: HudVisibility) =
@@ -503,14 +635,14 @@ object HudPresets {
         controls = listOf(
             at(base(HudKind.FLOAT_STICK), 88f, 270f),
             at(base(HudKind.JUMP).copy(icon = HudIcons.JUMP), 584f, 280f),
-            at(square("sneak", tr("Присесть"), HudKeys.LEFT_SHIFT, 52f, HudIcons.SNEAK, HudVisibility.WALKING, latch = true), 520f, 312f),
-            at(square("fly-down", tr("Вниз"), HudKeys.LEFT_SHIFT, 52f, HudIcons.DOWN, HudVisibility.FLYING), 520f, 312f),
-            at(iconAction("menu", tr("Меню"), HudAction.MENU, HudIcons.PAUSE, HudVisibility.ALWAYS), 616f, 22f),
-            at(iconAction("chat", tr("Чат"), HudAction.CHAT, HudIcons.CHAT, HudVisibility.LOOK), 576f, 22f),
+            at(square("sneak", trKey("Присесть"), HudKeys.LEFT_SHIFT, 52f, HudIcons.SNEAK, HudVisibility.WALKING, latch = true), 520f, 312f),
+            at(square("fly-down", trKey("Вниз"), HudKeys.LEFT_SHIFT, 52f, HudIcons.DOWN, HudVisibility.FLYING), 520f, 312f),
+            at(iconAction("menu", trKey("Меню"), HudAction.MENU, HudIcons.PAUSE, HudVisibility.ALWAYS), 616f, 22f),
+            at(iconAction("chat", trKey("Чат"), HudAction.CHAT, HudIcons.CHAT, HudVisibility.LOOK), 576f, 22f),
             at(square("escape", "Esc", HudKeys.ESCAPE, 36f, HudIcons.CLOSE, HudVisibility.CURSOR), 576f, 22f),
-            at(square("camera", tr("Вид"), HudKeys.F5, 36f, HudIcons.CAMERA), 536f, 22f),
-            at(square("players", tr("Игроки"), HudKeys.TAB, 36f, HudIcons.PLAYERS, hidden = true), 496f, 22f),
-            at(square("drop", tr("Бросить"), HudKeys.Q, 36f, HudIcons.DROP, hidden = true), 456f, 22f),
+            at(square("camera", trKey("Вид"), HudKeys.F5, 36f, HudIcons.CAMERA), 536f, 22f),
+            at(square("players", trKey("Игроки"), HudKeys.TAB, 36f, HudIcons.PLAYERS, hidden = true), 496f, 22f),
+            at(square("drop", trKey("Бросить"), HudKeys.Q, 36f, HudIcons.DROP, hidden = true), 456f, 22f),
             base(HudKind.HOTBAR_MORE).copy(icon = HudIcons.MORE, x = 0.5f, y = 0.95f),
         ),
     )
@@ -527,47 +659,69 @@ object HudPresets {
         controls = listOf(
             at(base(HudKind.FLOAT_STICK), 88f, 270f),
             at(base(HudKind.JUMP).copy(icon = HudIcons.JUMP), 584f, 280f),
-            at(square("use", tr("Действие"), HudKeys.MOUSE_RIGHT, 56f, HudIcons.USE, mouse = true), 520f, 232f),
-            at(square("sneak", tr("Присесть"), HudKeys.LEFT_SHIFT, 52f, HudIcons.SNEAK, HudVisibility.WALKING, latch = true), 520f, 312f),
-            at(square("fly-down", tr("Вниз"), HudKeys.LEFT_SHIFT, 52f, HudIcons.DOWN, HudVisibility.FLYING), 520f, 312f),
-            at(iconAction("menu", tr("Меню"), HudAction.MENU, HudIcons.PAUSE, HudVisibility.ALWAYS), 616f, 22f),
-            at(iconAction("chat", tr("Чат"), HudAction.CHAT, HudIcons.CHAT, HudVisibility.LOOK), 576f, 22f),
+            at(square("use", trKey("Действие"), HudKeys.MOUSE_RIGHT, 56f, HudIcons.USE, mouse = true), 520f, 232f),
+            at(square("sneak", trKey("Присесть"), HudKeys.LEFT_SHIFT, 52f, HudIcons.SNEAK, HudVisibility.WALKING, latch = true), 520f, 312f),
+            at(square("fly-down", trKey("Вниз"), HudKeys.LEFT_SHIFT, 52f, HudIcons.DOWN, HudVisibility.FLYING), 520f, 312f),
+            at(iconAction("menu", trKey("Меню"), HudAction.MENU, HudIcons.PAUSE, HudVisibility.ALWAYS), 616f, 22f),
+            at(iconAction("chat", trKey("Чат"), HudAction.CHAT, HudIcons.CHAT, HudVisibility.LOOK), 576f, 22f),
             at(square("escape", "Esc", HudKeys.ESCAPE, 36f, HudIcons.CLOSE, HudVisibility.CURSOR), 576f, 22f),
-            at(square("camera", tr("Вид"), HudKeys.F5, 36f, HudIcons.CAMERA), 536f, 22f),
-            at(square("players", tr("Игроки"), HudKeys.TAB, 36f, HudIcons.PLAYERS, hidden = true), 496f, 22f),
-            at(square("drop", tr("Бросить"), HudKeys.Q, 36f, HudIcons.DROP, hidden = true), 456f, 22f),
+            at(square("camera", trKey("Вид"), HudKeys.F5, 36f, HudIcons.CAMERA), 536f, 22f),
+            at(square("players", trKey("Игроки"), HudKeys.TAB, 36f, HudIcons.PLAYERS, hidden = true), 496f, 22f),
+            at(square("drop", trKey("Бросить"), HudKeys.Q, 36f, HudIcons.DROP, hidden = true), 456f, 22f),
             base(HudKind.HOTBAR_MORE).copy(icon = HudIcons.MORE, x = 0.5f, y = 0.95f),
         ),
     )
 
     fun stick(): HudLayout = HudLayout(
-        name = tr("Джойстик"),
+        name = STICK,
         scheme = ControlScheme.BUTTONS,
         controls = listOf(
-            at(HudControl("stick", tr("Ходьба"), HudKind.STICK, width = 176f, height = 176f), 104f, 252f),
+            at(HudControl("stick", trKey("Ходьба"), HudKind.STICK, width = 176f, height = 176f), 104f, 252f),
         ) + rightHand() + gameKeys(camera = true) + actions(),
     )
 
     fun buttons(): HudLayout = HudLayout(
-        name = tr("Кнопки"),
+        name = BUTTONS,
         controls = listOf(
             at(key("forward", "W", HudKeys.W, width = 56f), 116f, 168f),
             at(key("left", "A", HudKeys.A, width = 56f), 56f, 222f),
             at(key("back", "S", HudKeys.S, width = 56f), 116f, 222f),
             at(key("right", "D", HudKeys.D, width = 56f), 176f, 222f),
-            at(key("sprint", tr("Бег"), HudKeys.LEFT_CONTROL, width = 104f, toggle = true), 68f, 282f),
+            at(key("sprint", trKey("Бег"), HudKeys.LEFT_CONTROL, width = 104f, toggle = true), 68f, 282f),
         ) + rightHand() + gameKeys(camera = true) + actions(),
     )
 
     fun minimal(): HudLayout = HudLayout(
-        name = tr("Только обзор"),
+        name = MINIMAL,
         controls = listOf(
-            at(HudControl("stick", tr("Ходьба"), HudKind.STICK, width = 150f, height = 150f), 92f, 262f),
-            at(key("jump", tr("Прыжок"), HudKeys.SPACE, width = 104f), 572f, 250f),
+            at(HudControl("stick", trKey("Ходьба"), HudKind.STICK, width = 150f, height = 150f), 92f, 262f),
+            at(key("jump", trKey("Прыжок"), HudKeys.SPACE, width = 104f), 572f, 250f),
         ) + gameKeys(camera = false) + actions(),
     )
 
-    fun all(): List<HudLayout> = listOf(bedrock(), crosshair(), stick(), buttons(), minimal())
+    /**
+     * For modded servers and PvP: Bedrock's Crosshair, so a tap hits, plus what a
+     * phone without a desk keyboard lacks there: F3, the wheel for the hotbar,
+     * right Shift that opens the Millida mod menu, and the middle button.
+     */
+    fun mods(): HudLayout {
+        val base = crosshair()
+        return base.copy(
+            name = MODS,
+            controls = base.controls + listOf(
+                at(key("debug", "F3", HudKeys.F3), 40f, 28f),
+                at(key("mod-menu", trKey("Меню Millida"), HudKeys.RIGHT_SHIFT, width = 120f, visibility = HudVisibility.ALWAYS), 148f, 28f),
+                at(wheel("slot-prev", trKey("Слот −"), HudKeys.SCROLL_UP), 584f, 140f),
+                at(wheel("slot-next", trKey("Слот +"), HudKeys.SCROLL_DOWN), 584f, 196f),
+                at(mouse("middle", trKey("Копировать"), HudKeys.MOUSE_MIDDLE), 456f, 140f),
+            ),
+        )
+    }
+
+    private fun wheel(id: String, label: String, notches: Int) =
+        HudControl(id, label, HudKind.SCROLL, code = notches, width = 64f, height = 46f)
+
+    fun all(): List<HudLayout> = listOf(bedrock(), crosshair(), mods(), stick(), buttons(), minimal())
 
     fun forScheme(scheme: ControlScheme): HudLayout = when (scheme) {
         ControlScheme.TOUCH -> bedrock()
@@ -575,5 +729,6 @@ object HudPresets {
         ControlScheme.BUTTONS -> stick()
     }
 
-    fun byName(name: String): HudLayout? = all().firstOrNull { it.name == name }
+    /** Matches the stored key and, for layouts saved before names stayed untranslated, the name in the current language. */
+    fun byName(name: String): HudLayout? = all().firstOrNull { it.name == name } ?: all().firstOrNull { tr(it.name) == name }
 }

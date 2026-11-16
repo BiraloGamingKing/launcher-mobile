@@ -285,4 +285,32 @@ class HudProfilesTest {
             assertEquals(case.why, case.expected, control.withKeys(case.keys).keys)
         }
     }
+
+    @Test
+    fun `переименование доходит до экспорта и переживает импорт`() {
+        val profiles = HudProfiles.initial().create("Бой", HudPresets.stick()).rename("Бой", "ПвП")
+        assertEquals("имя внутри раскладки тоже новое", "ПвП", profiles.layout.name)
+
+        val imported = HudTransfer.decode(HudTransfer.encode(profiles.exported))
+        assertNotNull("раскладка читается обратно", imported)
+        assertEquals("в файл уходит новое имя, а не старое", "ПвП", imported!!.name)
+        val again = HudProfiles.initial().create(imported.name, imported)
+        assertEquals("импорт создаёт профиль под новым именем", "ПвП", again.activeName)
+
+        val stick = imported.controls.first { it.kind == HudKind.STICK }
+        val moved = imported.replace(stick.withPosition(0.9f, 0.1f))
+        assertEquals(
+            "после переименования и переноса «Сбросить» возвращает кнопку шаблона, а не Bedrock",
+            HudPresets.stick().controls.first { it.kind == HudKind.STICK },
+            moved.reset(stick.id).controls.first { it.kind == HudKind.STICK },
+        )
+    }
+
+    @Test
+    fun `экспорт берёт имя профиля, даже если раскладка внутри названа шаблоном`() {
+        val profiles = HudProfiles.initial().create("Моя", HudPresets.buttons())
+        assertEquals("файл называется как профиль в списке", "Моя", profiles.exported.name)
+        assertEquals("шаблон запомнен для сброса", HudPresets.BUTTONS, profiles.exported.preset?.name)
+        assertEquals("готовый профиль уходит под своим именем без лишних полей", HudPresets.bedrock(), HudProfiles.initial().exported)
+    }
 }
