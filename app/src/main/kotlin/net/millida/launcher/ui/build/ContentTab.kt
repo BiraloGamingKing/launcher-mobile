@@ -37,6 +37,7 @@ import net.millida.launcher.core.content.SafetyVerdict
 import net.millida.launcher.core.content.UpdatePlan
 import net.millida.launcher.core.cosmetics.CosmeticsModStatus
 import net.millida.launcher.core.cosmetics.SkinDiagnosis
+import net.millida.launcher.core.i18n.tr
 import net.millida.launcher.core.profile.ContentFile
 import net.millida.launcher.core.profile.Profile
 import net.millida.launcher.ui.LocalWideLayout
@@ -72,10 +73,10 @@ private const val PLAN_PREVIEW = 6
 private const val SAFETY_PREVIEW = 8
 
 private fun contentLabel(kind: ContentKind): String = when (kind) {
-    ContentKind.MOD -> "Моды"
-    ContentKind.RESOURCE_PACK -> "Ресурсы"
-    ContentKind.SHADER -> "Шейдеры"
-    ContentKind.DATA_PACK -> "Датапаки"
+    ContentKind.MOD -> tr("Моды")
+    ContentKind.RESOURCE_PACK -> tr("Ресурсы")
+    ContentKind.SHADER -> tr("Шейдеры")
+    ContentKind.DATA_PACK -> tr("Датапаки")
 }
 
 private fun contentIcon(kind: ContentKind): MillidaIcon = when (kind) {
@@ -86,20 +87,20 @@ private fun contentIcon(kind: ContentKind): MillidaIcon = when (kind) {
 }
 
 private fun emptyTitle(kind: ContentKind): String = when (kind) {
-    ContentKind.MOD -> "Модов пока нет"
-    ContentKind.RESOURCE_PACK -> "Ресурсов пока нет"
-    ContentKind.SHADER -> "Шейдеров пока нет"
-    ContentKind.DATA_PACK -> "Датапаков пока нет"
+    ContentKind.MOD -> tr("Модов пока нет")
+    ContentKind.RESOURCE_PACK -> tr("Ресурсов пока нет")
+    ContentKind.SHADER -> tr("Шейдеров пока нет")
+    ContentKind.DATA_PACK -> tr("Датапаков пока нет")
 }
 
 private fun cosmeticsLabel(status: CosmeticsModStatus): String = when (status) {
-    CosmeticsModStatus.INSTALLED -> "Стоит в сборке"
-    CosmeticsModStatus.OUTDATED -> "Есть версия посвежее"
-    CosmeticsModStatus.DISABLED -> "Стоит, но выключена"
-    CosmeticsModStatus.MISSING -> "Ещё не стоит"
-    CosmeticsModStatus.UNSUPPORTED_LOADER -> "Не подходит загрузчику этой сборки"
-    CosmeticsModStatus.UNSUPPORTED_VERSION -> "Нет сборки под эту версию игры"
-    CosmeticsModStatus.CATALOG_INCOMPLETE -> "Список версий не прочитался"
+    CosmeticsModStatus.INSTALLED -> tr("Стоит в сборке")
+    CosmeticsModStatus.OUTDATED -> tr("Есть версия посвежее")
+    CosmeticsModStatus.DISABLED -> tr("Стоит, но выключена")
+    CosmeticsModStatus.MISSING -> tr("Ещё не стоит")
+    CosmeticsModStatus.UNSUPPORTED_LOADER -> tr("Не подходит загрузчику этой сборки")
+    CosmeticsModStatus.UNSUPPORTED_VERSION -> tr("Нет сборки под эту версию игры")
+    CosmeticsModStatus.CATALOG_INCOMPLETE -> tr("Список версий не прочитался")
 }
 
 internal fun LazyListScope.contentTab(
@@ -168,7 +169,7 @@ internal fun LazyListScope.contentTab(
             MEmptyState(
                 icon = contentIcon(kind),
                 title = emptyTitle(kind),
-                actionText = "Каталог",
+                actionText = tr("Каталог"),
                 onAction = { model.openCatalogFromBuild() },
                 actionIcon = MIcons.catalog,
             )
@@ -211,14 +212,14 @@ private fun ContentActions(
 ) {
     val adding: @Composable () -> Unit = {
         MSecondaryButton(
-            "Добавить файл",
+            tr("Добавить файл"),
             onClick = onAddFile,
             icon = MIcons.upload,
             size = MButtonSize.Small,
             loading = importing,
         )
         MSecondaryButton(
-            "Каталог",
+            tr("Каталог"),
             onClick = { model.openCatalogFromBuild() },
             icon = MIcons.catalog,
             size = MButtonSize.Small,
@@ -226,14 +227,14 @@ private fun ContentActions(
     }
     val checks: @Composable () -> Unit = {
         MSecondaryButton(
-            "Обновления",
+            tr("Обновления"),
             onClick = { model.planContentUpdates(profile) },
             enabled = !busy,
             icon = MIcons.refresh,
             size = MButtonSize.Small,
         )
         MSecondaryButton(
-            "Проверить",
+            tr("Проверить"),
             onClick = { model.scanSafety(profile) },
             enabled = !busy,
             icon = MIcons.shield,
@@ -300,7 +301,7 @@ private fun ContentRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (hasUpdate) {
                     Text(
-                        "Обновление",
+                        tr("Обновление"),
                         modifier = Modifier
                             .pixelSurface(colors.accentSoft, MillidaCut.badge)
                             .padding(horizontal = 5.dp, vertical = 1.dp),
@@ -328,15 +329,15 @@ private fun ContentRow(
             MIconButton(
                 icon = MIcons.trash,
                 onClick = { confirming = true },
-                label = "Удалить",
+                label = tr("Удалить"),
             )
         }
     }
     if (confirming) {
         MConfirmDialog(
-            title = "Удалить из сборки?",
-            text = "«$title» пропадёт из этой сборки.",
-            confirm = "Удалить",
+            title = tr("Удалить из сборки?"),
+            text = tr("«{title}» пропадёт из этой сборки.", title),
+            confirm = tr("Удалить"),
             onConfirm = {
                 confirming = false
                 onDelete()
@@ -354,14 +355,14 @@ private fun CosmeticsRow(profile: Profile, state: UiState, model: LauncherViewMo
     val busy = state.busy != null
     var removing by rememberSaveable(profile.id) { mutableStateOf(false) }
     val line = if (cosmetics == null) {
-        "Проверяем сборку"
+        tr("Проверяем сборку")
     } else if (!cosmetics.installed && !cosmetics.canInstall && cosmetics.reason.isNotEmpty()) {
         cosmetics.reason
     } else {
         cosmeticsLabel(cosmetics.status)
     }
     MListRow(
-        title = "Косметика Millida",
+        title = tr("Косметика Millida"),
         subtitle = line,
         leading = {
             Box(
@@ -379,7 +380,7 @@ private fun CosmeticsRow(profile: Profile, state: UiState, model: LauncherViewMo
             } else {
                 if (cosmetics.status == CosmeticsModStatus.OUTDATED) {
                     MSecondaryButton(
-                        "Обновить",
+                        tr("Обновить"),
                         onClick = { model.installCosmetics(profile) },
                         enabled = !busy,
                         size = MButtonSize.Small,
@@ -392,7 +393,7 @@ private fun CosmeticsRow(profile: Profile, state: UiState, model: LauncherViewMo
                     )
                 } else if (cosmetics.canInstall) {
                     MSecondaryButton(
-                        "Поставить",
+                        tr("Поставить"),
                         onClick = { model.installCosmetics(profile) },
                         enabled = !busy,
                         icon = MIcons.download,
@@ -404,7 +405,7 @@ private fun CosmeticsRow(profile: Profile, state: UiState, model: LauncherViewMo
                         icon = MIcons.trash,
                         onClick = { removing = true },
                         enabled = !busy,
-                        label = "Убрать косметику",
+                        label = tr("Убрать косметику"),
                     )
                 }
             }
@@ -412,9 +413,9 @@ private fun CosmeticsRow(profile: Profile, state: UiState, model: LauncherViewMo
     )
     if (removing) {
         MConfirmDialog(
-            title = "Убрать косметику?",
-            text = "Скин и плащ будут видны только в лаунчере.",
-            confirm = "Убрать",
+            title = tr("Убрать косметику?"),
+            text = tr("Скин и плащ будут видны только в лаунчере."),
+            confirm = tr("Убрать"),
             onConfirm = {
                 removing = false
                 model.removeCosmetics(profile)
@@ -428,7 +429,7 @@ private fun CosmeticsRow(profile: Profile, state: UiState, model: LauncherViewMo
 private fun SkinDiagnosisCard(profile: Profile, diagnosis: SkinDiagnosis, busy: Boolean, model: LauncherViewModel) {
     val colors = millida
     MCard {
-        Text("Скина нет в игре?", style = MillidaType.rowTitle, color = colors.fg)
+        Text(tr("Скина нет в игре?"), style = MillidaType.rowTitle, color = colors.fg)
         if (diagnosis.summary.isNotBlank() && diagnosis.checks.none { !it.ok && it.detail == diagnosis.summary }) {
             Spacer(Modifier.height(4.dp))
             Text(diagnosis.summary, style = MillidaType.small, color = colors.fgSubtle)
@@ -449,7 +450,7 @@ private fun SkinDiagnosisCard(profile: Profile, diagnosis: SkinDiagnosis, busy: 
         if (diagnosis.fixable) {
             Spacer(Modifier.height(12.dp))
             MPrimaryButton(
-                "Починить",
+                tr("Починить"),
                 onClick = { model.repairCosmetics(profile) },
                 enabled = !busy,
                 icon = MIcons.shield,
@@ -467,11 +468,11 @@ private fun UpdatePlanCard(profile: Profile, plan: UpdatePlan, busy: Boolean, mo
             Row(verticalAlignment = Alignment.CenterVertically) {
                 MIcon(MIcons.check, size = 18.dp, color = colors.accentText)
                 Spacer(Modifier.width(10.dp))
-                Text("Всё свежее", style = MillidaType.rowTitle, color = colors.fg)
+                Text(tr("Всё свежее"), style = MillidaType.rowTitle, color = colors.fg)
             }
             return@MCard
         }
-        Text("Обновлений: ${plan.candidates.size}", style = MillidaType.rowTitle, color = colors.fg)
+        Text(tr("Обновлений: {count}", plan.candidates.size), style = MillidaType.rowTitle, color = colors.fg)
         Spacer(Modifier.height(6.dp))
         plan.candidates.take(PLAN_PREVIEW).forEach { candidate ->
             Text(
@@ -483,11 +484,11 @@ private fun UpdatePlanCard(profile: Profile, plan: UpdatePlan, busy: Boolean, mo
             )
         }
         if (plan.candidates.size > PLAN_PREVIEW) {
-            Text("и ещё ${plan.candidates.size - PLAN_PREVIEW}", style = MillidaType.small, color = colors.fgFaint)
+            Text(tr("и ещё {0}", plan.candidates.size - PLAN_PREVIEW), style = MillidaType.small, color = colors.fgFaint)
         }
         Spacer(Modifier.height(12.dp))
         MPrimaryButton(
-            "Обновить всё",
+            tr("Обновить всё"),
             onClick = { model.applyContentUpdates(profile) },
             enabled = !busy,
             icon = MIcons.download,
@@ -503,15 +504,15 @@ private fun SafetyCard(profile: Profile, report: SafetyReport, busy: Boolean, mo
     MCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Проверено: ${report.checked}",
+                tr("Проверено: {checked}", report.checked),
                 modifier = Modifier.weight(1f),
                 style = MillidaType.rowTitle,
                 color = colors.fg,
             )
             if (report.problems > 0) {
-                MBadge("С вопросами: ${report.problems}", colors.warning, colors.warningSoft)
+                MBadge(tr("С вопросами: {problems}", report.problems), colors.warning, colors.warningSoft)
             } else {
-                MBadge("Всё в порядке", colors.accentText, colors.accentSoft)
+                MBadge(tr("Всё в порядке"), colors.accentText, colors.accentSoft)
             }
         }
         flagged.take(SAFETY_PREVIEW).forEach { verdict ->
@@ -527,7 +528,7 @@ private fun SafetyCard(profile: Profile, report: SafetyReport, busy: Boolean, mo
         if (report.toQuarantine().isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             MSecondaryButton(
-                "В карантин",
+                tr("В карантин"),
                 onClick = { model.quarantineMods(profile) },
                 enabled = !busy,
                 icon = MIcons.shield,

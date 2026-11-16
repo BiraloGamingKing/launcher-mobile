@@ -83,17 +83,23 @@ class MillidaAuth(
     /**
      * Waits for the confirmation; false when the code ran out first. A failed request does not end
      * the wait: Android cuts the network of a backgrounded app, and that is where it waits.
+     * [onPoll] hears every answer, with the failure when the server was not reached.
      */
-    suspend fun awaitApproval(pending: PendingLogin, periodMs: Long = POLL_PERIOD_MS): Boolean {
+    suspend fun awaitApproval(
+        pending: PendingLogin,
+        periodMs: Long = POLL_PERIOD_MS,
+        onPoll: (IOException?) -> Unit = {},
+    ): Boolean {
         if (pending.approved) return true
         while (System.currentTimeMillis() < pending.expiresAtMs) {
             delay(periodMs)
             val approved = try {
-                pollLogin(pending.deviceCode)
+                pollLogin(pending.deviceCode).also { onPoll(null) }
             } catch (refused: LoginRefused) {
                 finishLogin()
                 throw refused
             } catch (unreachable: IOException) {
+                onPoll(unreachable)
                 false
             }
             if (approved) {
@@ -370,6 +376,12 @@ class MillidaAuth(
         pending.execute().use { response ->
             val text = response.body?.string().orEmpty()
             if (response.code == 401) throw Unauthorized()
+            if (response.code == 429) {
+                throw RateLimited(
+                    errorMessage(text) ?: tr("сервер ответил {code}", response.code),
+                    RetryAfter.seconds(text, response.header("Retry-After")),
+                )
+            }
             if (!response.isSuccessful) {
                 throw IOException(errorMessage(text) ?: tr("сервер ответил {code}", response.code))
             }

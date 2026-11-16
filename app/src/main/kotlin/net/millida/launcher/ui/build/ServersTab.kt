@@ -36,6 +36,7 @@ import kotlinx.coroutines.withContext
 import net.millida.launcher.Area
 import net.millida.launcher.LauncherViewModel
 import net.millida.launcher.UiState
+import net.millida.launcher.core.i18n.tr
 import net.millida.launcher.core.profile.Profile
 import net.millida.launcher.core.servers.ServerEntry
 import net.millida.launcher.core.servers.ServerStatus
@@ -82,8 +83,8 @@ internal fun LazyListScope.serversTab(
         item(key = "servers:empty", contentType = "empty") {
             MEmptyState(
                 icon = MIcons.server,
-                title = "Серверов нет",
-                actionText = "Добавить",
+                title = tr("Серверов нет"),
+                actionText = tr("Добавить"),
                 onAction = onAdd,
                 actionIcon = MIcons.plus,
             )
@@ -92,7 +93,7 @@ internal fun LazyListScope.serversTab(
     }
     item(key = "servers:actions", contentType = "actions") {
         MButtonRow {
-            MSecondaryButton("Добавить сервер", onClick = onAdd, icon = MIcons.plus, size = MButtonSize.Small)
+            MSecondaryButton(tr("Добавить сервер"), onClick = onAdd, icon = MIcons.plus, size = MButtonSize.Small)
         }
     }
     items(servers, key = { "server:${it.address}" }, contentType = { "server" }) { entry ->
@@ -144,7 +145,7 @@ private fun ServerRow(
     }
     val actions: @Composable () -> Unit = {
         MSecondaryButton(
-            "Играть",
+            tr("Играть"),
             onClick = {
                 model.selectBuild(profile)
                 model.playOnAddress(entry.address, entry.name)
@@ -154,7 +155,7 @@ private fun ServerRow(
             size = MButtonSize.Small,
         )
         MSecondaryButton(
-            "Закрепить",
+            tr("Закрепить"),
             onClick = { model.pinBuildServer(profile, entry.address) },
             enabled = !busy,
             icon = MIcons.star,
@@ -164,7 +165,7 @@ private fun ServerRow(
             icon = MIcons.trash,
             onClick = { confirming = true },
             enabled = !busy,
-            label = "Убрать сервер",
+            label = tr("Убрать сервер"),
         )
     }
 
@@ -185,9 +186,9 @@ private fun ServerRow(
 
     if (confirming) {
         MConfirmDialog(
-            title = "Убрать сервер?",
-            text = "Он пропадёт из списка этой сборки.",
-            confirm = "Убрать",
+            title = tr("Убрать сервер?"),
+            text = tr("Он пропадёт из списка этой сборки."),
+            confirm = tr("Убрать"),
             onConfirm = {
                 confirming = false
                 model.removeBuildServer(profile, entry.address)
@@ -201,14 +202,14 @@ private fun ServerRow(
 private fun ServerStatusLines(status: ServerStatus?, silent: Boolean) {
     val colors = millida
     if (status == null) {
-        Text(if (silent) "Сервер не отвечает" else "Опрашиваем сервер", style = MillidaType.small, color = colors.fgFaint)
+        Text(if (silent) tr("Сервер не отвечает") else tr("Опрашиваем сервер"), style = MillidaType.small, color = colors.fgFaint)
         return
     }
     Text(
         buildString {
-            append("Онлайн ").append(status.online).append(" из ").append(status.max)
+            append(tr("Онлайн {online} из {max}", status.online, status.max))
             if (status.version.isNotEmpty()) append(" · ").append(status.version)
-            append(" · ").append(status.latencyMs).append(" мс")
+            append(" · ").append(tr("{latency} мс", status.latencyMs))
         },
         style = MillidaType.small,
         color = colors.fgSubtle,
@@ -303,18 +304,18 @@ private const val MAX_ICON_SIDE = 128
 internal fun AddServerSheet(onDismiss: () -> Unit, onAdd: (String, String) -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
     var address by rememberSaveable { mutableStateOf("") }
-    MBottomSheet(onDismiss = onDismiss, title = "Добавить сервер") {
-        MField(name, { name = it }, placeholder = "Название")
+    MBottomSheet(onDismiss = onDismiss, title = tr("Добавить сервер")) {
+        MField(name, { name = it }, placeholder = tr("Название"))
         Spacer(Modifier.height(8.dp))
         MField(
             value = address,
             onValueChange = { address = it },
-            placeholder = "Адрес, например mc.millida.net",
+            placeholder = tr("Адрес, например mc.millida.net"),
             keyboardType = KeyboardType.Uri,
         )
         Spacer(Modifier.height(18.dp))
         MPrimaryButton(
-            "Добавить",
+            tr("Добавить"),
             onClick = { onAdd(name.trim(), address.trim()) },
             modifier = Modifier.fillMaxWidth(),
             enabled = address.isNotBlank(),

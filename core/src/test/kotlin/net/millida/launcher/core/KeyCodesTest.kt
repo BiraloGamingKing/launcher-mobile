@@ -2,6 +2,7 @@ package net.millida.launcher.core
 
 import net.millida.launcher.core.input.AndroidKeys
 import net.millida.launcher.core.input.CursorMapping
+import net.millida.launcher.core.input.GamepadMap
 import net.millida.launcher.core.input.GlfwCodes
 import net.millida.launcher.core.input.KeyCodes
 import org.junit.Assert.assertEquals
@@ -58,6 +59,21 @@ class KeyCodesTest {
         )
         cases.forEach { case -> assertEquals(case.why, case.glfw, KeyCodes.glfw(case.android)) }
         assertEquals("кнопка Back не клавиша игры: её ловит меню лаунчера", GlfwCodes.UNKNOWN, KeyCodes.glfw(4))
+    }
+
+    @Test
+    fun `кнопки громкости телефона не становятся клавишами игры`() {
+        data class Case(val android: Int, val why: String)
+
+        val cases = listOf(
+            Case(24, "громче: клавиша, переведённая в GLFW, съедается игрой и до громкости телефона не доходит"),
+            Case(25, "тише: то же, иначе звук игры нельзя убавить кнопкой"),
+            Case(164, "без звука на гарнитуре и клавиатуре: глушит система, а не игра"),
+        )
+        cases.forEach { case ->
+            assertEquals(case.why, GlfwCodes.UNKNOWN, KeyCodes.glfw(case.android))
+            assertNull("кнопка геймпада по умолчанию не занимает клавишу громкости ${case.android}", GamepadMap().binding(case.android))
+        }
     }
 
     @Test

@@ -28,6 +28,7 @@ import kotlinx.coroutines.withContext
 import net.millida.launcher.Area
 import net.millida.launcher.LauncherViewModel
 import net.millida.launcher.UiState
+import net.millida.launcher.core.i18n.tr
 import net.millida.launcher.shareFile
 import net.millida.launcher.ui.MButtonRow
 import net.millida.launcher.ui.MButtonSize
@@ -76,7 +77,7 @@ internal fun LazyListScope.logsTab(state: UiState, model: LauncherViewModel, lin
         }
 
         text.isBlank() -> item(key = "logs:empty", contentType = "empty") {
-            MEmptyState(icon = MIcons.list, title = "Журнала ещё нет")
+            MEmptyState(icon = MIcons.list, title = tr("Журнала ещё нет"))
         }
 
         else -> {
@@ -97,24 +98,24 @@ private fun LogActions(text: String, model: LauncherViewModel) {
     var reporting by rememberSaveable { mutableStateOf(false) }
     MButtonRow(Modifier.padding(top = 10.dp, bottom = 10.dp)) {
         MSecondaryButton(
-            "Скопировать",
+            tr("Скопировать"),
             onClick = {
                 clipboard.setText(AnnotatedString(text))
-                model.notice("Журнал скопирован")
+                model.notice(tr("Журнал скопирован"))
             },
             icon = MIcons.copy,
             size = MButtonSize.Small,
         )
         MSecondaryButton(
-            "Отправить",
+            tr("Отправить"),
             onClick = {
                 scope.launch {
                     val file = File(context.cacheDir, "millida-log.txt")
                     val written = withContext(Dispatchers.IO) { runCatching { file.writeText(text) }.isSuccess }
                     when {
-                        !written -> model.notice("Журнал не сохранился — освободи место и повтори", isError = true)
-                        !shareFile(context, file, "text/plain", "Журнал Millida") ->
-                            model.notice("Не нашлось приложения, чтобы отправить журнал", isError = true)
+                        !written -> model.notice(tr("Журнал не сохранился — освободи место и повтори"), isError = true)
+                        !shareFile(context, file, "text/plain", tr("Журнал Millida")) ->
+                            model.notice(tr("Не нашлось приложения, чтобы отправить журнал"), isError = true)
                     }
                 }
             },
@@ -122,7 +123,7 @@ private fun LogActions(text: String, model: LauncherViewModel) {
             size = MButtonSize.Small,
         )
         MSecondaryButton(
-            "Сообщить об ошибке",
+            tr("Сообщить об ошибке"),
             onClick = { reporting = true },
             icon = MIcons.flag,
             size = MButtonSize.Small,

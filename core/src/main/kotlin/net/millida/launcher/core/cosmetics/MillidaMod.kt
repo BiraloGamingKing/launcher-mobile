@@ -419,15 +419,15 @@ class MillidaMod(
     }
 
     @Throws(IOException::class)
-    suspend fun repair(profile: Profile, onChunk: (Long) -> Unit = {}): CosmeticsModState =
+    suspend fun repair(profile: Profile, onProgress: (Float) -> Unit = {}): CosmeticsModState =
         when (diagnose(profile).fix) {
-            SkinFix.INSTALL -> install(profile, onChunk)
+            SkinFix.INSTALL -> install(profile, onProgress)
             SkinFix.ENABLE -> setEnabled(profile, true)
             SkinFix.NONE -> state(profile)
         }
 
     @Throws(IOException::class)
-    suspend fun install(profile: Profile, onChunk: (Long) -> Unit = {}): CosmeticsModState {
+    suspend fun install(profile: Profile, onProgress: (Float) -> Unit = {}): CosmeticsModState {
         val manifest = manifest()
         val current = state(profile, manifest)
         val artifact = current.availableFile
@@ -444,6 +444,7 @@ class MillidaMod(
         val target = SafePath.join(mods, artifact)
         val stale = jars(profile).filter { it != artifact }
 
+        var received = 0L
         downloader.fetch(
             // Downloader picks the digest by its length, so a sha256 from the
             // catalogue is verified even though the field is named after sha1.
@@ -453,8 +454,11 @@ class MillidaMod(
                 sha1 = variant.sha256,
                 size = variant.size,
             ),
-            onChunk,
-        )
+        ) { chunk ->
+            // A negative chunk means the Downloader restarted the file from the first byte.
+            received = if (chunk < 0) 0L else received + chunk
+            if (variant.size > 0) onProgress((received.toFloat() / variant.size).coerceIn(0f, 1f))
+        }
         if (!target.isFile) throw IOException(tr("Файл косметики не появился в сборке — попробуй ещё раз"))
 
         stale.forEach { File(mods, it).delete() }

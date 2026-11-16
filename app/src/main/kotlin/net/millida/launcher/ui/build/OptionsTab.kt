@@ -110,45 +110,45 @@ private fun MainCard(profile: Profile, state: UiState, lobby: LobbyState, model:
     val groupChanged = group.trim() != savedGroup
 
     MCard {
-        OptionField("НАЗВАНИЕ") {
+        OptionField(tr("НАЗВАНИЕ")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                MField(name, { name = it }, placeholder = "Название сборки", modifier = Modifier.weight(1f))
+                MField(name, { name = it }, placeholder = tr("Название сборки"), modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 MIconButton(
                     icon = MIcons.check,
                     onClick = { model.renameProfile(profile, name) },
                     tint = colors.accentText,
                     enabled = nameChanged,
-                    label = "Сохранить название",
+                    label = tr("Сохранить название"),
                 )
             }
         }
         Spacer(Modifier.height(16.dp))
-        OptionField("ГРУППА НА ГЛАВНОЙ") {
+        OptionField(tr("ГРУППА НА ГЛАВНОЙ")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                MField(group, { group = it }, placeholder = "Без группы", modifier = Modifier.weight(1f))
+                MField(group, { group = it }, placeholder = tr("Без группы"), modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 MIconButton(
                     icon = MIcons.check,
                     onClick = { model.setBuildGroup(profile, group) },
                     tint = colors.accentText,
                     enabled = groupChanged && !busy,
-                    label = "Сохранить группу",
+                    label = tr("Сохранить группу"),
                 )
             }
         }
         Spacer(Modifier.height(16.dp))
-        OptionField("ОБЛОЖКА") {
+        OptionField(tr("ОБЛОЖКА")) {
             MButtonRow {
                 MSecondaryButton(
-                    if (hasCover) "Сменить" else "Выбрать",
+                    if (hasCover) tr("Сменить") else tr("Выбрать"),
                     onClick = onPickCover,
                     icon = MIcons.image,
                     size = MButtonSize.Small,
                     loading = lobby.coverBusy,
                 )
                 if (hasCover) {
-                    MTextButton("Убрать", onClick = { model.lobby.clearCover(profile, state.profiles) })
+                    MTextButton(tr("Убрать"), onClick = { model.lobby.clearCover(profile, state.profiles) })
                 }
             }
         }
@@ -186,7 +186,7 @@ private fun GameCard(profile: Profile, state: UiState, model: LauncherViewModel)
     val colors = millida
     val memoryValue: @Composable () -> Unit = {
         Text(
-            if (profile.memoryMb > 0) "${profile.memoryMb} МБ" else "Авто",
+            if (profile.memoryMb > 0) tr("{memory} МБ", profile.memoryMb) else tr("Авто"),
             style = MillidaType.pixel,
             color = colors.accentText,
             maxLines = 1,
@@ -202,11 +202,11 @@ private fun GameCard(profile: Profile, state: UiState, model: LauncherViewModel)
             valueRange = 0f..state.memoryCeilingMb.toFloat(),
             steps = state.memoryCeilingMb / MemoryTuning.SETTING_STEP_MB - 1,
         )
-        Text("Ноль — подберёт лаунчер", style = MillidaType.small, color = colors.fgFaint)
+        Text(tr("Ноль — подберёт лаунчер"), style = MillidaType.small, color = colors.fgFaint)
     }
     MCard {
         if (LocalWideLayout.current) {
-            OptionField("ПАМЯТЬ") {
+            OptionField(tr("ПАМЯТЬ")) {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Spacer(Modifier.weight(1f))
@@ -217,7 +217,7 @@ private fun GameCard(profile: Profile, state: UiState, model: LauncherViewModel)
             }
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                MSectionTitle("ПАМЯТЬ", Modifier.weight(1f))
+                MSectionTitle(tr("ПАМЯТЬ"), Modifier.weight(1f))
                 memoryValue()
             }
             memoryControl()
@@ -229,12 +229,12 @@ private fun GameCard(profile: Profile, state: UiState, model: LauncherViewModel)
             val selected = profile.rendererId.takeIf { it in options } ?: ""
             val label: (String) -> String = { id ->
                 if (id.isEmpty()) {
-                    "Общий"
+                    tr("Общий")
                 } else {
                     state.renderers.firstOrNull { it.id == id }?.label?.ifEmpty { id } ?: id
                 }
             }
-            OptionField("РЕНДЕРЕР") {
+            OptionField(tr("РЕНДЕРЕР")) {
                 if (options.size <= 3) {
                     MSegmented(
                         options = options,
@@ -383,15 +383,15 @@ private fun PlayedCard(profile: Profile, state: UiState, lobby: LobbyState, mode
     val played = state.playStats?.builds?.firstOrNull { it.profileId == profile.id }
     val seconds = playedSeconds(profile, lobby)
     MCard {
-        MSectionTitle("НАИГРАНО")
+        MSectionTitle(tr("НАИГРАНО"))
         Spacer(Modifier.height(6.dp))
-        MInfoRow("Время в игре", if (seconds > 0) playedLabel(seconds) else "Пока ничего")
+        MInfoRow(tr("Время в игре"), if (seconds > 0) playedLabel(seconds) else tr("Пока ничего"))
         if (played != null) {
-            MInfoRow("Запусков", played.sessions.toString(), mono = true)
-            if (played.lastAt > 0) MInfoRow("Последний раз", shotMoment(played.lastAt * 1000))
+            MInfoRow(tr("Запусков"), played.sessions.toString(), mono = true)
+            if (played.lastAt > 0) MInfoRow(tr("Последний раз"), shotMoment(played.lastAt * 1000))
         }
         val folder = remember(profile.id) { model.profileDirectory(profile) }
-        MInfoRow("Папка", folder)
+        MInfoRow(tr("Папка"), folder)
     }
 }
 
@@ -410,11 +410,11 @@ private fun MigrateCard(profile: Profile, state: UiState, model: LauncherViewMod
     val plan = state.migratePlan?.takeIf { plannedFor == planKey }
 
     MCard {
-        MSectionTitle("ПЕРЕНОС НА ДРУГУЮ ВЕРСИЮ")
+        MSectionTitle(tr("ПЕРЕНОС НА ДРУГУЮ ВЕРСИЮ"))
         Spacer(Modifier.height(4.dp))
-        Text("Соберём копию — эта сборка не изменится", style = MillidaType.small, color = colors.fgSubtle)
+        Text(tr("Соберём копию — эта сборка не изменится"), style = MillidaType.small, color = colors.fgSubtle)
         Spacer(Modifier.height(10.dp))
-        MField(version, { version = it }, placeholder = "Версия игры, например 1.21.4")
+        MField(version, { version = it }, placeholder = tr("Версия игры, например 1.21.4"))
         Spacer(Modifier.height(8.dp))
         MButtonRow {
             LoaderKind.entries.forEach { kind ->
@@ -429,7 +429,7 @@ private fun MigrateCard(profile: Profile, state: UiState, model: LauncherViewMod
         Spacer(Modifier.height(10.dp))
         MButtonRow {
             MSecondaryButton(
-                "Посчитать",
+                tr("Посчитать"),
                 onClick = {
                     plannedFor = planKey
                     model.planMigration(profile, target, loader)
@@ -440,7 +440,7 @@ private fun MigrateCard(profile: Profile, state: UiState, model: LauncherViewMod
             )
             if (plan != null) {
                 MPrimaryButton(
-                    "Перенести",
+                    tr("Перенести"),
                     onClick = { model.migrateBuild(profile, target, loader) },
                     enabled = ready && !busy,
                     size = MButtonSize.Small,
@@ -449,12 +449,12 @@ private fun MigrateCard(profile: Profile, state: UiState, model: LauncherViewMod
         }
         if (plan != null && plan.items.isEmpty() && plan.unlinked.isEmpty()) {
             Spacer(Modifier.height(10.dp))
-            Text("Модов нет — переедут миры и настройки", style = MillidaType.small, color = colors.fgSubtle)
+            Text(tr("Модов нет — переедут миры и настройки"), style = MillidaType.small, color = colors.fgSubtle)
         } else if (plan != null) {
             Spacer(Modifier.height(10.dp))
             MButtonRow {
-                MBadge("Переедет: ${plan.ready}", colors.accentText, colors.accentSoft)
-                if (plan.missing > 0) MBadge("Не нашлось: ${plan.missing}", colors.danger, colors.dangerSoft)
+                MBadge(tr("Переедет: {ready}", plan.ready), colors.accentText, colors.accentSoft)
+                if (plan.missing > 0) MBadge(tr("Не нашлось: {missing}", plan.missing), colors.danger, colors.dangerSoft)
             }
             plan.items.filterNot { it.ok }.take(MIGRATE_PREVIEW).forEach { item ->
                 Spacer(Modifier.height(4.dp))
@@ -469,7 +469,7 @@ private fun MigrateCard(profile: Profile, state: UiState, model: LauncherViewMod
             if (plan.unlinked.isNotEmpty()) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Останутся здесь: ${plan.unlinked.take(4).joinToString(", ")}",
+                    tr("Останутся здесь: {names}", plan.unlinked.take(4).joinToString(", ")),
                     style = MillidaType.small,
                     color = colors.fgFaint,
                     maxLines = 2,
@@ -484,25 +484,25 @@ private fun MigrateCard(profile: Profile, state: UiState, model: LauncherViewMod
 private fun RepairCard(profile: Profile, state: UiState, model: LauncherViewModel) {
     val busy = state.busy != null
     MCard {
-        MSectionTitle("КОПИЯ И ПОЧИНКА")
+        MSectionTitle(tr("КОПИЯ И ПОЧИНКА"))
         Spacer(Modifier.height(10.dp))
         MButtonRow {
             MSecondaryButton(
-                "Копия",
+                tr("Копия"),
                 onClick = { model.duplicateBuild(profile, true) },
                 enabled = !busy,
                 icon = MIcons.copy,
                 size = MButtonSize.Small,
             )
             MSecondaryButton(
-                "Копия без модов",
+                tr("Копия без модов"),
                 onClick = { model.duplicateBuild(profile, false) },
                 enabled = !busy,
                 icon = MIcons.copy,
                 size = MButtonSize.Small,
             )
             MSecondaryButton(
-                "Починить",
+                tr("Починить"),
                 onClick = { model.repairBuild(profile) },
                 enabled = !busy,
                 icon = MIcons.shield,
@@ -516,10 +516,10 @@ private fun RepairCard(profile: Profile, state: UiState, model: LauncherViewMode
 private fun DeleteCard(profile: Profile, model: LauncherViewModel) {
     var confirming by rememberSaveable(profile.id) { mutableStateOf(false) }
     MCard {
-        MSectionTitle("УДАЛЕНИЕ")
+        MSectionTitle(tr("УДАЛЕНИЕ"))
         Spacer(Modifier.height(10.dp))
         MDangerButton(
-            "Удалить сборку",
+            tr("Удалить сборку"),
             onClick = { confirming = true },
             icon = MIcons.trash,
             size = MButtonSize.Medium,
@@ -527,9 +527,9 @@ private fun DeleteCard(profile: Profile, model: LauncherViewModel) {
     }
     if (confirming) {
         MConfirmDialog(
-            title = "Удалить сборку?",
-            text = "«${profile.name}» удалится с модами и мирами. Вернуть нельзя.",
-            confirm = "Удалить",
+            title = tr("Удалить сборку?"),
+            text = tr("«{name}» удалится с модами и мирами. Вернуть нельзя.", profile.name),
+            confirm = tr("Удалить"),
             onConfirm = {
                 confirming = false
                 model.deleteProfile(profile.id)

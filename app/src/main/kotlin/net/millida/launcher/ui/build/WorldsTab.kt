@@ -26,6 +26,7 @@ import net.millida.launcher.Area
 import net.millida.launcher.LauncherViewModel
 import net.millida.launcher.UiState
 import net.millida.launcher.core.game.WorldCard
+import net.millida.launcher.core.i18n.tr
 import net.millida.launcher.core.profile.Profile
 import net.millida.launcher.shareFile
 import net.millida.launcher.ui.MButtonRow
@@ -51,11 +52,11 @@ import net.millida.launcher.ui.shotMoment
 import java.io.File
 
 private fun worldMode(world: WorldCard): String = when {
-    world.hardcore -> "Хардкор"
-    world.gameMode == 1 -> "Творческий"
-    world.gameMode == 2 -> "Приключение"
-    world.gameMode == 3 -> "Наблюдатель"
-    else -> "Выживание"
+    world.hardcore -> tr("Хардкор")
+    world.gameMode == 1 -> tr("Творческий")
+    world.gameMode == 2 -> tr("Приключение")
+    world.gameMode == 3 -> tr("Наблюдатель")
+    else -> tr("Выживание")
 }
 
 internal fun LazyListScope.worldsTab(
@@ -78,8 +79,8 @@ internal fun LazyListScope.worldsTab(
         worlds.isEmpty() -> item(key = "worlds:empty", contentType = "empty") {
             MEmptyState(
                 icon = MIcons.map,
-                title = "Миров ещё нет",
-                actionText = "Мир из файла",
+                title = tr("Миров ещё нет"),
+                actionText = tr("Мир из файла"),
                 onAction = onImport,
                 actionIcon = MIcons.folder,
                 primary = false,
@@ -90,7 +91,7 @@ internal fun LazyListScope.worldsTab(
             item(key = "worlds:actions", contentType = "actions") {
                 MButtonRow {
                     MSecondaryButton(
-                        "Мир из файла",
+                        tr("Мир из файла"),
                         onClick = onImport,
                         enabled = !busy,
                         icon = MIcons.folder,
@@ -160,14 +161,14 @@ private fun WorldRow(
             MIconButton(
                 icon = if (expanded) MIcons.chevronUp else MIcons.chevronDown,
                 onClick = { expanded = !expanded },
-                label = if (expanded) "Свернуть" else "Действия с миром",
+                label = if (expanded) tr("Свернуть") else tr("Действия с миром"),
             )
             Spacer(Modifier.width(8.dp))
             MIconButton(
                 icon = MIcons.trash,
                 onClick = { deleting = true },
                 enabled = !busy,
-                label = "Удалить мир",
+                label = tr("Удалить мир"),
             )
         }
 
@@ -176,32 +177,32 @@ private fun WorldRow(
         Spacer(Modifier.height(12.dp))
         MButtonRow {
             MSecondaryButton(
-                "Копия",
+                tr("Копия"),
                 onClick = { model.backupWorld(profile, world.folder) },
                 enabled = !busy,
                 icon = MIcons.copy,
                 size = MButtonSize.Small,
             )
             MSecondaryButton(
-                "Дубликат",
+                tr("Дубликат"),
                 onClick = { model.duplicateWorld(profile, world.folder) },
                 enabled = !busy,
                 icon = MIcons.plus,
                 size = MButtonSize.Small,
             )
             MSecondaryButton(
-                "Имя",
+                tr("Имя"),
                 onClick = { renaming = !renaming },
                 icon = MIcons.edit,
                 size = MButtonSize.Small,
             )
             MSecondaryButton(
-                "Файлом",
+                tr("Файлом"),
                 onClick = {
                     val target = File(context.cacheDir, "${world.folder}.zip")
                     model.exportWorldFile(profile, world.folder, target) { file ->
-                        if (!shareFile(context, file, "application/zip", "Мир $title")) {
-                            model.notice("Не нашлось приложения, чтобы отправить мир", isError = true)
+                        if (!shareFile(context, file, "application/zip", tr("Мир {title}", title))) {
+                            model.notice(tr("Не нашлось приложения, чтобы отправить мир"), isError = true)
                         }
                     }
                 },
@@ -213,10 +214,10 @@ private fun WorldRow(
 
         if (renaming) {
             Spacer(Modifier.height(10.dp))
-            MField(draft, { draft = it }, placeholder = "Название мира")
+            MField(draft, { draft = it }, placeholder = tr("Название мира"))
             Spacer(Modifier.height(8.dp))
             MSecondaryButton(
-                "Сохранить",
+                tr("Сохранить"),
                 onClick = {
                     renaming = false
                     model.renameWorld(profile, world.folder, draft)
@@ -228,10 +229,10 @@ private fun WorldRow(
 
         val backups = state.worldBackups.filter { it.folder == world.folder }
         Spacer(Modifier.height(14.dp))
-        MSectionTitle("КОПИИ МИРА")
+        MSectionTitle(tr("КОПИИ МИРА"))
         Spacer(Modifier.height(6.dp))
         if (backups.isEmpty()) {
-            Text("Копий ещё нет", style = MillidaType.small, color = colors.fgSubtle)
+            Text(tr("Копий ещё нет"), style = MillidaType.small, color = colors.fgSubtle)
         } else {
             backups.forEach { backup ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -240,7 +241,7 @@ private fun WorldRow(
                         Text(humanSize(backup.sizeBytes), style = MillidaType.small, color = colors.fgFaint)
                     }
                     MSecondaryButton(
-                        "Вернуть",
+                        tr("Вернуть"),
                         onClick = { restoring = backup.file },
                         enabled = !busy,
                         size = MButtonSize.Small,
@@ -250,7 +251,7 @@ private fun WorldRow(
                         icon = MIcons.trash,
                         onClick = { dropping = backup.file },
                         enabled = !busy,
-                        label = "Удалить копию",
+                        label = tr("Удалить копию"),
                     )
                 }
                 Spacer(Modifier.height(8.dp))
@@ -260,9 +261,9 @@ private fun WorldRow(
 
     if (deleting) {
         MConfirmDialog(
-            title = "Удалить мир?",
-            text = "«$title» удалится без возврата.",
-            confirm = "Удалить",
+            title = tr("Удалить мир?"),
+            text = tr("«{title}» удалится без возврата.", title),
+            confirm = tr("Удалить"),
             onConfirm = {
                 deleting = false
                 model.deleteWorld(world)
@@ -272,9 +273,9 @@ private fun WorldRow(
     }
     restoring?.let { file ->
         MConfirmDialog(
-            title = "Вернуть копию?",
-            text = "Мир станет таким, каким был в копии.",
-            confirm = "Вернуть",
+            title = tr("Вернуть копию?"),
+            text = tr("Мир станет таким, каким был в копии."),
+            confirm = tr("Вернуть"),
             onConfirm = {
                 restoring = null
                 model.restoreWorld(profile, file)
@@ -284,9 +285,9 @@ private fun WorldRow(
     }
     dropping?.let { file ->
         MConfirmDialog(
-            title = "Удалить копию?",
+            title = tr("Удалить копию?"),
             text = null,
-            confirm = "Удалить",
+            confirm = tr("Удалить"),
             onConfirm = {
                 dropping = null
                 model.deleteWorldBackup(profile, file, world.folder)

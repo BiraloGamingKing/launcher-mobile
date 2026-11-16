@@ -220,7 +220,7 @@ class AmbientModel(
         player = created
         applyVolume(created, 0)
         created.start()
-        mutable.update { it.copy(playing = true, nowPlaying = BUNDLED_TITLE, musicError = null) }
+        mutable.update { it.copy(playing = true, nowPlaying = tr("Тихий вечер"), musicError = null) }
         fadeIn(created)
         return true
     }
@@ -296,6 +296,5 @@ class AmbientModel(
         const val FADE_STEPS = 9
         const val FADE_STEP_MS = 100L
         const val FADE_OUT_STEP_MS = 40L
-        const val BUNDLED_TITLE = "Тихий вечер"
     }
 }

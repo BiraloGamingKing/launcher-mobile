@@ -51,8 +51,8 @@ class CosmeticsModTest {
         server.shutdown()
     }
 
-    private fun catalogJson(version: String = "1.4.0", baseUrl: String = "", sha256: String = ""): String {
-        val sum = if (sha256.isEmpty()) "" else ""","sha256":"$sha256""""
+    private fun catalogJson(version: String = "1.4.0", baseUrl: String = "", sha256: String = "", size: Long = 0): String {
+        val sum = (if (sha256.isEmpty()) "" else ""","sha256":"$sha256"""") + (if (size > 0) ""","size":$size""" else "")
         val base = if (baseUrl.isEmpty()) "" else ""","baseUrl":"$baseUrl""""
         return """
             {"formatVersion":1,"version":"$version"$base,"variants":[
@@ -254,6 +254,20 @@ class CosmeticsModTest {
             1,
             world.mods.list().orEmpty().count { it.startsWith("millida-mod-") },
         )
+    }
+
+    @Test
+    fun `установка показывает долю скачанного, а не стоит на нуле`() = runBlocking {
+        val jar = ByteArray(300_000) { (it % 251).toByte() }
+        serve(catalogJson(baseUrl = server.url("/mod").toString(), sha256 = sha256(jar), size = jar.size.toLong()), jar)
+
+        val world = world()
+        val shares = mutableListOf<Float>()
+        world.mod.install(world.profile) { shares += it }
+
+        assertTrue("на медленной линии игрок видел 0% до самого конца загрузки мода", shares.isNotEmpty())
+        assertEquals("в конце загрузки доля ровно 100%", 1f, shares.last(), 0f)
+        assertTrue("доля не прыгает назад без перезапуска файла: $shares", shares.zipWithNext().all { (a, b) -> b >= a })
     }
 
     @Test

@@ -3,6 +3,7 @@ package net.millida.launcher
 import android.Manifest
 import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
+import android.media.AudioManager
 import android.os.Build
 import android.content.Intent
 import android.os.Bundle
@@ -197,6 +198,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Without it the volume keys move the ringer whenever the launcher is silent at that moment.
+        volumeControlStream = AudioManager.STREAM_MUSIC
         val prefs = Prefs(this)
         paintWindow(startsDark(prefs), prefs.accentId)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

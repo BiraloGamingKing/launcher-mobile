@@ -22,6 +22,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -32,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import net.millida.launcher.LauncherViewModel
 import net.millida.launcher.MILLIDA_LOGIN_TASK
 import net.millida.launcher.ToastTone
@@ -55,6 +60,16 @@ fun LoginScreen(state: UiState, model: LauncherViewModel, onLeave: () -> Unit) {
     val clipboard = LocalClipboardManager.current
     val prompt = state.loginPrompt?.takeIf { it.inline && it.kind == AccountKind.MILLIDA }
     val busy = MILLIDA_LOGIN_TASK in state.tasks
+    val retryAt = state.loginRetryAtMs
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(retryAt) {
+        while (true) {
+            now = System.currentTimeMillis()
+            if (now >= retryAt) break
+            delay(1_000)
+        }
+    }
+    val waitSeconds = ((retryAt - now + 999) / 1_000).coerceAtLeast(0)
 
     BackHandler {
         if (busy || prompt != null) model.cancelLogin() else onLeave()
@@ -94,12 +109,16 @@ fun LoginScreen(state: UiState, model: LauncherViewModel, onLeave: () -> Unit) {
             Text(tr("Нет аккаунта — создастся при входе"), style = MillidaType.body.copy(fontSize = 14.sp), color = colors.fgMuted)
             Spacer(Modifier.height(20.dp))
             MButton(
-                if (busy) tr("Ждём подтверждения…") else tr("Войти через аккаунт Millida"),
+                when {
+                    busy -> tr("Ждём подтверждения…")
+                    waitSeconds > 0 -> tr("Повтор через {seconds} с", waitSeconds)
+                    else -> tr("Войти через аккаунт Millida")
+                },
                 onClick = { model.loginMillida(inline = true) },
                 modifier = Modifier.fillMaxWidth(),
                 variant = MButtonVariant.Primary,
                 size = MButtonSize.Large,
-                enabled = !busy,
+                enabled = !busy && waitSeconds == 0L,
                 icon = MIcons.shield,
             )
             if (prompt != null) {

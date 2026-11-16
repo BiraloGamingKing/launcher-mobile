@@ -110,17 +110,17 @@ class UpdateInstallReceiver : BroadcastReceiver() {
                     intent.getParcelableExtra(Intent.EXTRA_INTENT)
                 }
                 if (confirm == null) {
-                    SelfInstallEvents.post("Система не показала подтверждение установки", true)
+                    SelfInstallEvents.post(tr("Система не показала подтверждение установки"), true)
                     return
                 }
                 val started = runCatching {
                     context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }.isSuccess
-                if (!started) SelfInstallEvents.post("Не удалось открыть подтверждение — открой лаунчер и повтори", true)
+                if (!started) SelfInstallEvents.post(tr("Не удалось открыть подтверждение — открой лаунчер и повтори"), true)
             }
             PackageInstaller.STATUS_SUCCESS -> Log.i("millida", "обновление установлено")
             PackageInstaller.STATUS_FAILURE_ABORTED ->
-                SelfInstallEvents.post("Установка отменена", false)
+                SelfInstallEvents.post(tr("Установка отменена"), false)
             else -> {
                 val why = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
                 Log.w("millida", "установка обновления: статус $status, $why")

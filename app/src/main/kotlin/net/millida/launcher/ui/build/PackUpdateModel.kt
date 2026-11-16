@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.millida.launcher.Container
 import net.millida.launcher.core.catalog.MillidaCatalog
+import net.millida.launcher.core.i18n.tr
 import net.millida.launcher.core.packs.MirroredPackFile
 import net.millida.launcher.core.packs.PackAutoUpdate
 import net.millida.launcher.core.packs.PackEdits
@@ -124,11 +125,11 @@ class PackUpdateModel(
                     PackEdits.choose(container.profiles.directory(profile), profile.id, on)
                 }
                 mutable.update { if (it.profileId == profile.id) it.copy(auto = saved) else it }
-                host.notice(if (on) "Сборка будет обновляться сама" else "Сборка обновляется только по кнопке «Обновить»", false)
+                host.notice(if (on) tr("Сборка будет обновляться сама") else tr("Сборка обновляется только по кнопке «Обновить»"), false)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                host.notice("Не удалось сохранить автообновление: ${host.errorText(error).lowerFirst()}", true)
+                host.notice(tr("Не удалось сохранить автообновление: {reason}", host.errorText(error).lowerFirst()), true)
             }
         }
     }

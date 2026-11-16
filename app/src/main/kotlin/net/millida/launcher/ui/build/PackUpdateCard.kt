@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import net.millida.launcher.core.i18n.tr
 import net.millida.launcher.core.packs.PackAutoUpdate
 import net.millida.launcher.core.packs.PackUpdateOffer
 import net.millida.launcher.ui.MButton
@@ -34,7 +35,7 @@ internal fun PackUpdateCard(offer: PackUpdateOffer, job: ModpackJob?, busy: Bool
             MIcon(MIcons.download, size = 20.dp, color = colors.accentText)
             Spacer(Modifier.width(10.dp))
             Text(
-                "Новая версия · ${offer.from} → ${offer.to}",
+                tr("Новая версия · {from} → {to}", offer.from, offer.to),
                 style = MillidaType.body,
                 color = colors.fg,
                 maxLines = 2,
@@ -44,13 +45,13 @@ internal fun PackUpdateCard(offer: PackUpdateOffer, job: ModpackJob?, busy: Bool
             Spacer(Modifier.width(8.dp))
             if (job != null) {
                 MButton(
-                    text = job.progress?.let { "${(it * 100).toInt()}%" } ?: "Обновляем",
+                    text = job.progress?.let { "${(it * 100).toInt()}%" } ?: tr("Обновляем"),
                     onClick = {},
                     size = MButtonSize.Small,
                     loading = true,
                 )
             } else {
-                MPrimaryButton(text = "Обновить", onClick = onUpdate, enabled = !busy, size = MButtonSize.Small)
+                MPrimaryButton(text = tr("Обновить"), onClick = onUpdate, enabled = !busy, size = MButtonSize.Small)
             }
         }
         if (job != null) {
@@ -63,11 +64,13 @@ internal fun PackUpdateCard(offer: PackUpdateOffer, job: ModpackJob?, busy: Bool
 @Composable
 internal fun PackUpdateConfirm(name: String, offer: PackUpdateOffer, edited: Boolean, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     MConfirmDialog(
-        title = "Обновить «$name»?",
-        text = "Поставим версию ${offer.to} рядом со старой и перенесём миры, скриншоты и настройки игры. " +
-            "Старая версия удалится, только когда новая встанет на место." +
-            if (edited) " Моды придут в версии автора: добавленные тобой моды не перенесутся." else "",
-        confirm = "Обновить",
+        title = tr("Обновить «{name}»?", name),
+        text = if (edited) {
+            tr("Поставим версию {to} рядом со старой и перенесём миры, скриншоты и настройки игры. Старая версия удалится, только когда новая встанет на место. Моды придут в версии автора: добавленные тобой моды не перенесутся.", offer.to)
+        } else {
+            tr("Поставим версию {to} рядом со старой и перенесём миры, скриншоты и настройки игры. Старая версия удалится, только когда новая встанет на место.", offer.to)
+        },
+        confirm = tr("Обновить"),
         onConfirm = onConfirm,
         onDismiss = onDismiss,
         danger = false,
@@ -77,6 +80,6 @@ internal fun PackUpdateConfirm(name: String, offer: PackUpdateOffer, edited: Boo
 @Composable
 internal fun PackAutoUpdateCard(auto: PackAutoUpdate, onChange: (Boolean) -> Unit) {
     MCard {
-        MSwitchRow(title = "Автообновление сборки", hint = auto.note, checked = auto.on, onChange = onChange)
+        MSwitchRow(title = tr("Автообновление сборки"), hint = auto.note, checked = auto.on, onChange = onChange)
     }
 }

@@ -3,6 +3,7 @@ package net.millida.launcher
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -41,6 +42,8 @@ class GameActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Without it the volume keys move the ringer whenever the game is silent at that moment.
+        volumeControlStream = AudioManager.STREAM_MUSIC
         CrashGuard.install(this)
 
         val request = readRequest(intent)

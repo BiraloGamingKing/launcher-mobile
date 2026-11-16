@@ -35,10 +35,12 @@ import net.millida.launcher.core.account.AccountKind
 import net.millida.launcher.core.account.DevicePoll
 import net.millida.launcher.core.account.FirstRunGameStep
 import net.millida.launcher.core.account.LoginGate
+import net.millida.launcher.core.account.LoginWaitWatch
 import net.millida.launcher.core.account.GameSession
 import net.millida.launcher.core.account.MicrosoftSignInRequired
 import net.millida.launcher.core.account.OfflineAuth
 import net.millida.launcher.core.account.PendingLogin
+import net.millida.launcher.core.account.RateLimited
 import net.millida.launcher.core.account.Unauthorized
 import net.millida.launcher.core.catalog.CatalogItem
 import net.millida.launcher.core.catalog.CatalogSource
@@ -80,6 +82,7 @@ import net.millida.launcher.core.cosmetics.SkinDiagnosis
 import net.millida.launcher.core.friends.ChatTarget
 import net.millida.launcher.core.friends.Dialog
 import net.millida.launcher.core.friends.Friend
+import net.millida.launcher.core.friends.FriendsErrors
 import net.millida.launcher.core.friends.FriendRequests
 import net.millida.launcher.core.game.WorldBackup
 import net.millida.launcher.core.hosting.HostingDetails
@@ -295,6 +298,7 @@ data class UiState(
     val progressNote: String = "",
     val messages: List<Message> = emptyList(),
     val loginPrompt: LoginPrompt? = null,
+    val loginRetryAtMs: Long = 0L,
     val details: AccountDetails? = null,
     val sessions: List<AccountSession> = emptyList(),
     val nicknameDraft: String = "",
@@ -829,7 +833,7 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         if (foreign) {
             val tab = LINK_TABS[section] ?: if (section == "modpacks") CatalogTab.MODPACKS else null
             if (tab == null) {
-                notice("Этот раздел на телефоне не ставится", isError = true)
+                notice(tr("Этот раздел на телефоне не ставится"), isError = true)
                 return
             }
             val cf = source == "curseforge"
@@ -2257,12 +2261,12 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
                 ?: throw IOException(tr("моду нужен Fabric API, а под {gameVersion} его в каталоге нет", profile.gameVersion))
             container.catalog.install(api.copy(projectId = MillidaModOffer.FABRIC_API_PROJECT), ContentKind.MOD, dir)
         }
-        return container.millidaMod.install(profile)
+        return container.millidaMod.install(profile) { share -> state.update { it.copy(progress = share) } }
     }
 
     fun repairCosmetics(profile: Profile) = viewModelScope.launch {
         runTask(tr("Чиним скин в игре")) {
-            val result = container.millidaMod.repair(profile)
+            val result = container.millidaMod.repair(profile) { share -> state.update { it.copy(progress = share) } }
             state.update { it.copy(cosmetics = result) }
             loadCosmetics(profile)
             notice(tr("Готово, запусти сборку и проверь"))
@@ -3858,17 +3862,18 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
         loginJob?.cancel()
         loginJob = viewModelScope.launch {
             runTask(MILLIDA_LOGIN_TASK) {
-                val pending = obtain()
-                if (!pending.approved) {
-                    state.update {
-                        it.copy(loginPrompt = LoginPrompt(pending.userCode, pending.verifyUrl, AccountKind.MILLIDA, pending.inline))
-                    }
-                }
                 try {
+                    val pending = obtain()
+                    if (!pending.approved) {
+                        state.update {
+                            it.copy(loginPrompt = LoginPrompt(pending.userCode, pending.verifyUrl, AccountKind.MILLIDA, pending.inline))
+                        }
+                    }
                     completeMillidaLogin(pending)
                 } catch (failed: IOException) {
-                    state.update { it.copy(loginPrompt = null) }
-                    throw failed
+                    val retryAtMs = (failed as? RateLimited)?.retryAfterSeconds?.let { System.currentTimeMillis() + it * 1000L }
+                    state.update { it.copy(loginPrompt = null, loginRetryAtMs = retryAtMs ?: it.loginRetryAtMs) }
+                    throw IOException(FriendsErrors.text(failed, tr("Вход не выполнен")), failed)
                 }
             }
         }
@@ -3876,7 +3881,13 @@ class LauncherViewModel(application: Application) : AndroidViewModel(application
 
     private suspend fun completeMillidaLogin(pending: PendingLogin) {
         val auth = container.millidaAuth
-        if (!auth.awaitApproval(pending)) {
+        val watch = LoginWaitWatch()
+        val approved = auth.awaitApproval(pending) { failure ->
+            if (watch.shouldTell(failure, visible = appResumed.value)) {
+                notice(FriendsErrors.text(failure, tr("Нет связи с Millida — проверь интернет и повтори")), isError = true)
+            }
+        }
+        if (!approved) {
             state.update { it.copy(loginPrompt = null) }
             notice(tr("Код входа истёк — попробуй снова"), isError = true)
             return
