@@ -5,6 +5,7 @@ const params = new URLSearchParams(location.search)
 const screen = params.get('screen') || 'catalog'
 const version = params.get('v') || ''
 const accent = params.get('accent') || ''
+const locale = params.get('lang') || 'ru'
 const host = globalThis.MillidaHost
 
 const tell = (op, args) => {
@@ -61,7 +62,7 @@ const call = (op, args) =>
 
 const bridge = {
   v: 1,
-  locale: 'ru',
+  locale,
   platform: 'android',
   siteOrigin: 'https://millida.net',
   api: (path, init) => call('api', { path, method: init && init.method, body: init && init.body }),

@@ -2,6 +2,7 @@ package net.millida.launcher.ui
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.net.Uri
 import android.net.http.SslError
 import android.view.ViewGroup
 import android.webkit.RenderProcessGoneDetail
@@ -23,7 +24,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -41,6 +44,7 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.delay
 import net.millida.launcher.LauncherViewModel
+import net.millida.launcher.core.i18n.I18n
 import net.millida.launcher.remoteui.REMOTE_UI_HOST
 import net.millida.launcher.remoteui.REMOTE_UI_ORIGIN
 import net.millida.launcher.remoteui.RemoteBridge
@@ -68,6 +72,7 @@ fun RemoteScreen(screen: String, model: LauncherViewModel, fallback: @Composable
     var version by remember(screen) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val accent = millida.accent.toArgb() and 0xFFFFFF
+    val lang by I18n.locale.collectAsState()
     val web = remember(screen) { arrayOfNulls<WebView>(1) }
 
     // Back first goes through the module's own routes (server page, opened card): __MLU_BACK__ answers true when it
@@ -101,75 +106,77 @@ fun RemoteScreen(screen: String, model: LauncherViewModel, fallback: @Composable
 
     Box(Modifier.fillMaxSize().background(RemoteBg).padding(horizontal = 12.dp).navigationBarsPadding()) {
         version?.let { v ->
-            val bridge = remember(screen, v) {
-                RemoteBridge(
-                    model = model,
-                    scope = scope,
-                    onReady = { if (phase == Phase.LOADING) phase = Phase.READY },
-                    onFail = { crash, _ ->
-                        if (crash) remote.markBad(v)
-                        if (phase != Phase.READY || crash) phase = Phase.FAILED
+            key(lang) {
+                val bridge = remember(screen, v) {
+                    RemoteBridge(
+                        model = model,
+                        scope = scope,
+                        onReady = { if (phase == Phase.LOADING) phase = Phase.READY },
+                        onFail = { crash, _ ->
+                            if (crash) remote.markBad(v)
+                            if (phase != Phase.READY || crash) phase = Phase.FAILED
+                        },
+                    )
+                }
+                val url = "$REMOTE_UI_ORIGIN/assets/remote-ui/shell.html?screen=$screen&v=$v&lang=${Uri.encode(lang)}&accent=%23" + "%06x".format(accent)
+                AndroidView(
+                    modifier = Modifier.fillMaxSize().alpha(if (phase == Phase.READY) 1f else 0f),
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                            setBackgroundColor(RemoteBg.toArgb())
+                            overScrollMode = WebView.OVER_SCROLL_NEVER
+                            settings.apply {
+                                javaScriptEnabled = true
+                                domStorageEnabled = true
+                                allowFileAccess = false
+                                allowContentAccess = false
+                                setSupportMultipleWindows(false)
+                                mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                                if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(this, false)
+                                }
+                            }
+                            webViewClient = object : WebViewClient() {
+                                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                                    remote.assetLoader.shouldInterceptRequest(request.url)
+
+                                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                                    if (request.url.host == REMOTE_UI_HOST) return false
+                                    model.openExternalFromRemote(request.url.toString())
+                                    return true
+                                }
+
+                                override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                                    if (request.isForMainFrame && phase != Phase.READY) phase = Phase.FAILED
+                                }
+
+                                override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) = handler.cancel()
+
+                                override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                                    phase = Phase.FAILED
+                                    return true
+                                }
+                            }
+                            WebViewCompat.addWebMessageListener(
+                                this,
+                                "MillidaHost",
+                                setOf(REMOTE_UI_ORIGIN),
+                            ) { _, message: WebMessageCompat, sourceOrigin, isMainFrame, replyProxy ->
+                                if (isMainFrame && sourceOrigin.toString() == REMOTE_UI_ORIGIN) {
+                                    message.data?.let { bridge.handle(it, replyProxy) }
+                                }
+                            }
+                            web[0] = this
+                            loadUrl(url)
+                        }
+                    },
+                    onRelease = {
+                        web[0] = null
+                        it.destroy()
                     },
                 )
             }
-            val url = "$REMOTE_UI_ORIGIN/assets/remote-ui/shell.html?screen=$screen&v=$v&accent=%23" + "%06x".format(accent)
-            AndroidView(
-                modifier = Modifier.fillMaxSize().alpha(if (phase == Phase.READY) 1f else 0f),
-                factory = { ctx ->
-                    WebView(ctx).apply {
-                        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                        setBackgroundColor(RemoteBg.toArgb())
-                        overScrollMode = WebView.OVER_SCROLL_NEVER
-                        settings.apply {
-                            javaScriptEnabled = true
-                            domStorageEnabled = true
-                            allowFileAccess = false
-                            allowContentAccess = false
-                            setSupportMultipleWindows(false)
-                            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                            if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                                WebSettingsCompat.setAlgorithmicDarkeningAllowed(this, false)
-                            }
-                        }
-                        webViewClient = object : WebViewClient() {
-                            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
-                                remote.assetLoader.shouldInterceptRequest(request.url)
-
-                            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                                if (request.url.host == REMOTE_UI_HOST) return false
-                                model.openExternalFromRemote(request.url.toString())
-                                return true
-                            }
-
-                            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                                if (request.isForMainFrame && phase != Phase.READY) phase = Phase.FAILED
-                            }
-
-                            override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) = handler.cancel()
-
-                            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
-                                phase = Phase.FAILED
-                                return true
-                            }
-                        }
-                        WebViewCompat.addWebMessageListener(
-                            this,
-                            "MillidaHost",
-                            setOf(REMOTE_UI_ORIGIN),
-                        ) { _, message: WebMessageCompat, sourceOrigin, isMainFrame, replyProxy ->
-                            if (isMainFrame && sourceOrigin.toString() == REMOTE_UI_ORIGIN) {
-                                message.data?.let { bridge.handle(it, replyProxy) }
-                            }
-                        }
-                        web[0] = this
-                        loadUrl(url)
-                    }
-                },
-                onRelease = {
-                    web[0] = null
-                    it.destroy()
-                },
-            )
         }
         if (phase == Phase.LOADING) {
             Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
