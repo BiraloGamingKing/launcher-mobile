@@ -221,7 +221,7 @@ class MicrosoftAuth(
         this[key]?.jsonPrimitive?.content?.toLongOrNull() ?: fallback
 
     companion object {
-        const val DEFAULT_CLIENT_ID = "499c8d36-be2a-4231-9ebd-ef291b7bb64c"
+        const val DEFAULT_CLIENT_ID = "APEXMC_MICROSOFT_CLIENT_ID_REQUIRED"
         private const val PROFILE_URL = "https://api.minecraftservices.com/minecraft/profile"
     }
 }
