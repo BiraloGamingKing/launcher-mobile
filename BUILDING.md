@@ -1,4 +1,4 @@
-# How to build Millida Launcher for Android yourself
+# How to build APEXMC Launcher for Android yourself
 
 Russian version: [BUILDING.ru.md](BUILDING.ru.md)
 
@@ -28,14 +28,14 @@ Android Studio creates this file itself when you open the project in it.
 ## 2. Build
 
 ```bash
-git clone https://github.com/millida/launcher-mobile.git
+git clone https://github.com/BiraloGamingKing/launcher-mobile.git
 cd launcher-mobile
 ./gradlew :app:assembleDebug
 ```
 
 In PowerShell: `.\gradlew :app:assembleDebug`.
 
-To build exactly the version served on the website, take the latest "Millida Mobile X.Y.Z" commit in the [history](https://github.com/millida/launcher-mobile/commits/main).
+To build exactly the version served on the website, take the latest "APEXMC Launcher X.Y.Z" commit in the [history](https://github.com/BiraloGamingKing/launcher-mobile/commits/main).
 
 ## 3. Get the result
 
@@ -51,9 +51,9 @@ You need a phone with Android 8.0 or newer and a 64-bit processor (arm64).
 
 | | Your build | From millida.net |
 | --- | --- | --- |
-| Code | The same as in this repository | The same: every release here is a "Millida Mobile X.Y.Z" commit |
+| Code | The same as in this repository | The same: every release here is a "APEXMC Launcher X.Y.Z" commit |
 | Signature | The debug key of the Android SDK | The Millida key. No developer publishes it: with it, anyone could release an app in our name |
-| App | A separate one, `net.millida.launcher.debug`: it installs next to the official one and does not touch it | `net.millida.launcher` |
+| App | A separate one, `com.apexmc.launcher.debug`: it installs next to the official one and does not touch it | `com.apexmc.launcher` |
 | Java and graphics | Downloaded on the first game launch | Already inside the APK |
 
 ## How to check the official APK
@@ -69,4 +69,4 @@ You need a phone with Android 8.0 or newer and a 64-bit processor (arm64).
 | `SDK location not found` | The SDK path is not set: `ANDROID_HOME` or `local.properties`, step 1 |
 | `Android Gradle plugin requires Java 17 to run` | Install JDK 17 or newer, or point `JAVA_HOME` to the `jbr` folder of Android Studio |
 | An error about the NDK or CMake | Install NDK 27 and CMake 3.22.1 in "SDK Tools", step 1 |
-| Something else | [Open an issue](https://github.com/millida/launcher-mobile/issues/new) and attach the output of the command |
+| Something else | [Open an issue](https://github.com/BiraloGamingKing/launcher-mobile/issues/new) and attach the output of the command |
