@@ -104,7 +104,7 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             buildConfigField("boolean", "TEST_HOOKS", "true")
-            buildConfigField("boolean", "GUEST_LOGIN", "true")
+            buildConfigField("boolean", "GUEST_LOGIN", "false")
         }
         // The debug build with the debug hooks but not debuggable: ART compiles it ahead of
         // time like the release, so the test phone shows the speed players get (a debuggable
