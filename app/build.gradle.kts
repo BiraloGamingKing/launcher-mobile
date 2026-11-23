@@ -62,7 +62,7 @@ android {
         }
         // The launcher is landscape-only, like the game and the desktop lobby.
         manifestPlaceholders["launcherOrientation"] = "sensorLandscape"
-        buildConfigField("boolean", "SELF_UPDATE", "true")
+        buildConfigField("boolean", "SELF_UPDATE", "false")
         buildConfigField("boolean", "OFFLINE_LOGIN", "false")
         buildConfigField("boolean", "OTHER_STORE_LINKS", "true")
         buildConfigField("boolean", "PD_CONSENT", "false")
