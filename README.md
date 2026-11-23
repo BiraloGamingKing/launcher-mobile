@@ -26,3 +26,5 @@ This fork remains under **GNU GPL v3.0**. Keep the license and required notices 
 <!-- CI trigger: APEXMC debug build workflow -->
 
 <!-- Trigger CI after Gradle BuildConfig correction -->
+
+<!-- CI trigger: manifest/deep-link update -->
