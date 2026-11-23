@@ -33,6 +33,9 @@ abstract class BundleRuntimeTask : DefaultTask() {
 val bundleRuntime = providers.gradleProperty("millida.bundleRuntime").isPresent
 val releaseVersionCode = providers.gradleProperty("millida.versionCode").get().trim().toInt()
 val releaseVersionName = providers.gradleProperty("millida.versionName").get().trim()
+val apexmcMicrosoftClientId = providers.gradleProperty("apexmc.microsoftClientId")
+    .orElse(providers.environmentVariable("APEXMC_MICROSOFT_CLIENT_ID"))
+    .getOrElse("APEXMC_MICROSOFT_CLIENT_ID_REQUIRED")
 // A release-signed build for the test phone: the debug hooks ride along so it installs over the
 // store build (same key) and scripts drive it. Never published, see release.yml.
 val testHooks = providers.gradleProperty("millida.testHooks").isPresent
@@ -62,11 +65,11 @@ android {
         }
         // The launcher is landscape-only, like the game and the desktop lobby.
         manifestPlaceholders["launcherOrientation"] = "sensorLandscape"
-        buildConfigField("boolean", "SELF_UPDATE", "false")
+        buildConfigField("boolean", "SELF_UPDATE", "false")\n        buildConfigField("String", "MICROSOFT_CLIENT_ID", "\\"$apexmcMicrosoftClientId\\"")
         buildConfigField("boolean", "OFFLINE_LOGIN", "false")
-        buildConfigField("boolean", "OTHER_STORE_LINKS", "true")
+        buildConfigField("boolean", "OTHER_STORE_LINKS", "false")
         buildConfigField("boolean", "PD_CONSENT", "false")
-        // Test-only hooks (offline nick, scripted pack runs, stand override); on in debug and preview.
+        // Test-only hooks are disabled in normal builds; debug/preview can opt in separately.
         buildConfigField("boolean", "TEST_HOOKS", "false")
         // The offline nick for players without a Minecraft licence. 1.10.2 shipped without it and 92% of
         // new installs never got past «Как будешь играть?» (telemetry 03.11.2026), so it stays on.
