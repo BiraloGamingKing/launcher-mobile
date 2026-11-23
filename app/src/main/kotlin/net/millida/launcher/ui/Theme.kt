@@ -91,8 +91,8 @@ private val darkTokens = MillidaColors(
     fgMuted = Color(0xCCEDEFEE),
     fgSubtle = Color(0xA8EDEFEE),
     fgFaint = Color(0x85EDEFEE),
-    accent = Color(0xFF5EC64D),
-    accentSoft = Color(0x215EC64D),
+    accent = Color(0xFFE11D48),
+    accentSoft = Color(0x26E11D48),
     danger = Color(0xFFFF6B5E),
     dangerSoft = Color(0x21FF6B5E),
     warning = Color(0xFFF5AA38),
@@ -102,7 +102,7 @@ private val darkTokens = MillidaColors(
     success = Color(0xFF5EC64D),
     dark = true,
     onAccent = InkOnAccent,
-    accentText = Color(0xFF5EC64D),
+    accentText = Color(0xFFFF5577),
     accentToday = Color(0xFF334D32),
     accentDeep = Color(0xFF11240E),
     border = Color(0x12FFFFFF),
@@ -166,7 +166,7 @@ data class MillidaAccent(
 )
 
 val MillidaAccents: List<MillidaAccent> get() = listOf(
-    MillidaAccent("green", tr("Зелёный"), Color(0xFF5EC64D), Color(0x215EC64D)),
+    MillidaAccent("crimson", tr("Crimson"), Color(0xFFE11D48), Color(0x26E11D48)),
     MillidaAccent("lime", tr("Лайм"), Color(0xFF9BD628), Color(0x249BD628)),
     MillidaAccent("teal", tr("Бирюзовый"), Color(0xFF22C7A9), Color(0x2422C7A9)),
     MillidaAccent("cyan", tr("Голубой"), Color(0xFF2CB6E8), Color(0x242CB6E8)),
@@ -786,7 +786,7 @@ private const val PREMIUM_DOCK_ALPHA = 0.35f
 
 @Composable
 fun MillidaTheme(
-    dark: Boolean = isSystemInDarkTheme(),
+    dark: Boolean = true,
     accentId: String = "green",
     premium: Boolean = false,
     content: @Composable () -> Unit,
