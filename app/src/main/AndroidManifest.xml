@@ -35,7 +35,7 @@
       memtagMode: the same story for hardware memory tagging on newer chips.
     -->
     <application
-        android:name=".MillidaApp"
+        android:name=".ApexMcApp"
         android:allowBackup="false"
         android:allowNativeHeapPointerTagging="false"
         android:memtagMode="off"
@@ -46,7 +46,7 @@
         android:localeConfig="@xml/locales_config"
         android:largeHeap="true"
         android:supportsRtl="false"
-        android:theme="@style/Theme.Millida">
+        android:theme="@style/Theme.ApexMC">
 
         <activity
             android:name=".MainActivity"
@@ -56,7 +56,7 @@
             android:resizeableActivity="true"
             android:screenOrientation="${launcherOrientation}"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Millida">
+            android:theme="@style/Theme.ApexMC">
             <!--
               The site's "Играть" and "Установить в Millida Launcher" buttons open
               millida:// addresses. Of the https links to millida.net only pack
@@ -66,7 +66,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="millida" />
+                <data android:scheme="apexmc" />
             </intent-filter>
             <!--
               Verified against https://millida.net/.well-known/assetlinks.json,
@@ -188,7 +188,7 @@
             android:launchMode="singleTask"
             android:screenOrientation="userLandscape"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Millida" />
+            android:theme="@style/Theme.ApexMC" />
         <!--
           "Play again" after a crash needs a fresh game process, and the old one
           is still alive while its screen closes. This screen waits in the
@@ -201,7 +201,7 @@
             android:noHistory="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|smallestScreenSize"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.Millida" />
+            android:theme="@style/Theme.ApexMC" />
         <!--
           The keep-alive service guards the game, so it has to live in the game
           process; the runtime library declares it without a process of its own.
