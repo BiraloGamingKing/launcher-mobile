@@ -57,28 +57,12 @@
             android:screenOrientation="${launcherOrientation}"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.ApexMC">
-            <!--
-              The site's "Играть" and "Установить в Millida Launcher" buttons open
-              millida:// addresses. Of the https links to millida.net only pack
-              codes are claimed; every other page stays in the browser.
-            -->
+            <!-- APEXMC pack/server links use the apexmc:// scheme. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="apexmc" />
-            </intent-filter>
-            <!--
-              Verified against https://millida.net/.well-known/assetlinks.json,
-              so a shared pack code opens here without a chooser.
-            -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" />
-                <data android:host="millida.net" />
-                <data android:pathPrefix="/p/" />
             </intent-filter>
         </activity>
 
