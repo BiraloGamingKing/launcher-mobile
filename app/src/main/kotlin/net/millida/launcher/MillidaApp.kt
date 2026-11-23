@@ -4,7 +4,7 @@ import android.app.Application
 import android.os.Build
 import java.io.File
 
-class MillidaApp : Application() {
+class ApexMcApp : Application() {
     override fun onCreate() {
         super.onCreate()
         CrashGuard.install(this)
