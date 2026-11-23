@@ -10,7 +10,7 @@ This repository is being rebranded and audited for APEXMC. The first foundation 
 
 ## Build
 
-See [BUILDING.md](BUILDING.md) for Android/Gradle build requirements. A compatible Java 17 and Android SDK/NDK environment is required. A GitHub Actions build workflow will be added after the source audit.
+See [BUILDING.md](BUILDING.md) for Android/Gradle build requirements. A compatible Java 17 and Android SDK/NDK environment is required. A GitHub Actions debug-APK workflow is available at `.github/workflows/apexmc-android.yml`. Current progress and blockers: [APEXMC-MIGRATION-STATUS.md](APEXMC-MIGRATION-STATUS.md).
 
 ## Authentication
 
