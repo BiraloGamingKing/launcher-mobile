@@ -370,7 +370,7 @@ class MainActivity : ComponentActivity() {
         if (intent?.action != Intent.ACTION_VIEW) return
         val data = intent.data ?: return
         val scheme = data.scheme.orEmpty()
-        if (!"millida".equals(scheme, ignoreCase = true) && !"https".equals(scheme, ignoreCase = true)) return
+        if (!"apexmc".equals(scheme, ignoreCase = true) && !"https".equals(scheme, ignoreCase = true)) return
         model.handleLink(data.toString())
     }
 
