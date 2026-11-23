@@ -14,7 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "millida-mobile"
+rootProject.name = "apexmc-mobile"
 
 include(":core")
 include(":runtime")
