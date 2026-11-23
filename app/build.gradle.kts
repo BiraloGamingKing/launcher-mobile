@@ -65,7 +65,8 @@ android {
         }
         // The launcher is landscape-only, like the game and the desktop lobby.
         manifestPlaceholders["launcherOrientation"] = "sensorLandscape"
-        buildConfigField("boolean", "SELF_UPDATE", "false")\n        buildConfigField("String", "MICROSOFT_CLIENT_ID", "\\"$apexmcMicrosoftClientId\\"")
+        buildConfigField("boolean", "SELF_UPDATE", "false")
+        buildConfigField("String", "MICROSOFT_CLIENT_ID", "\"$apexmcMicrosoftClientId\"")
         buildConfigField("boolean", "OFFLINE_LOGIN", "false")
         buildConfigField("boolean", "OTHER_STORE_LINKS", "false")
         buildConfigField("boolean", "PD_CONSENT", "false")
