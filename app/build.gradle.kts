@@ -52,7 +52,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "net.millida.launcher"
+        applicationId = "com.apexmc.launcher"
         minSdk = 26
         targetSdk = 35
         versionCode = releaseVersionCode
@@ -63,32 +63,32 @@ android {
         // The launcher is landscape-only, like the game and the desktop lobby.
         manifestPlaceholders["launcherOrientation"] = "sensorLandscape"
         buildConfigField("boolean", "SELF_UPDATE", "true")
-        buildConfigField("boolean", "OFFLINE_LOGIN", "true")
+        buildConfigField("boolean", "OFFLINE_LOGIN", "false")
         buildConfigField("boolean", "OTHER_STORE_LINKS", "true")
         buildConfigField("boolean", "PD_CONSENT", "false")
         // Test-only hooks (offline nick, scripted pack runs, stand override); on in debug and preview.
         buildConfigField("boolean", "TEST_HOOKS", "false")
         // The offline nick for players without a Minecraft licence. 1.10.2 shipped without it and 92% of
         // new installs never got past «Как будешь играть?» (telemetry 03.11.2026), so it stays on.
-        buildConfigField("boolean", "GUEST_LOGIN", "true")
+        buildConfigField("boolean", "GUEST_LOGIN", "false")
     }
 
     signingConfigs {
         // The key never lives in the project: the path and the password come
         // from the release job environment or local.properties, never from git.
-        create("millida") {
+        create("apexmc") {
             val local = Properties()
             val file = rootProject.file("local.properties")
             if (file.exists()) file.inputStream().use { local.load(it) }
             fun setting(env: String, key: String): String? =
                 providers.environmentVariable(env).orNull?.takeIf { it.isNotBlank() } ?: local.getProperty(key)
-            val store = setting("MILLIDA_KEYSTORE_FILE", "millida.release.keystore")
-            val password = setting("MILLIDA_KEYSTORE_PASSWORD", "millida.release.password")
+            val store = setting("APEXMC_KEYSTORE_FILE", "apexmc.release.keystore")
+            val password = setting("APEXMC_KEYSTORE_PASSWORD", "apexmc.release.password")
             if (store != null && File(store).isFile) {
                 storeFile = File(store)
                 storePassword = password
-                keyAlias = setting("MILLIDA_KEY_ALIAS", "millida.release.alias")
-                keyPassword = setting("MILLIDA_KEY_PASSWORD", "millida.release.key.password") ?: password
+                keyAlias = setting("APEXMC_KEY_ALIAS", "apexmc.release.alias")
+                keyPassword = setting("APEXMC_KEY_PASSWORD", "apexmc.release.key.password") ?: password
             }
         }
     }
@@ -98,7 +98,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("millida")
+            signingConfig = signingConfigs.getByName("apexmc")
             buildConfigField("boolean", "TEST_HOOKS", testHooks.toString())
         }
         debug {
