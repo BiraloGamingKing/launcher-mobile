@@ -21,3 +21,6 @@ Before enabling sign-in, register an APEXMC-owned public client application in M
 ## License and attribution
 
 This fork remains under **GNU GPL v3.0**. Keep the license and required notices when distributing modified binaries or source. APEXMC is an independent project and is not affiliated with Mojang Studios, Microsoft, or the original Millida project. Minecraft is a trademark of Mojang Studios.
+
+
+<!-- CI trigger: APEXMC debug build workflow -->
